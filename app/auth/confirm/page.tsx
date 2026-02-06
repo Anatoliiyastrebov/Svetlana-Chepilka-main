@@ -49,16 +49,18 @@ export default function AuthConfirmPage() {
       // Base64 encode the user data
       const encodedUser = btoa(encodeURIComponent(JSON.stringify(userData)));
 
-      // Get return URL from start_param or use default
+      // Get return URL from start_param (passed from the website)
       let returnUrl = WEBAPP_URL;
-      try {
-        const savedUrl = localStorage.getItem('telegram_auth_return_url');
-        if (savedUrl) {
-          returnUrl = savedUrl;
-          localStorage.removeItem('telegram_auth_return_url');
+      const startParam = tg.initDataUnsafe.start_param;
+      
+      if (startParam) {
+        try {
+          // Decode the return URL from start_param
+          returnUrl = decodeURIComponent(atob(startParam));
+        } catch {
+          // If decoding fails, use default URL
+          console.error('Failed to decode return URL');
         }
-      } catch {
-        // localStorage not available in Telegram context
       }
 
       // Build redirect URL with encoded user data

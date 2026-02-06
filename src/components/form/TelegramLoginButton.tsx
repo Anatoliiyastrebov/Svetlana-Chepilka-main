@@ -97,11 +97,11 @@ export const TelegramLoginButton: React.FC<TelegramLoginButtonProps> = ({
   const handleTelegramLogin = () => {
     setIsLoading(true);
     
-    // Save current URL to return after auth
-    localStorage.setItem('telegram_auth_return_url', window.location.href);
+    // Encode current URL to pass as startapp parameter
+    const returnUrl = btoa(encodeURIComponent(window.location.href));
     
-    // Redirect directly to Telegram Mini App (no server session needed)
-    const telegramUrl = `https://t.me/${BOT_USERNAME}/${MINI_APP_NAME}`;
+    // Redirect to Telegram Mini App with return URL in startapp
+    const telegramUrl = `https://t.me/${BOT_USERNAME}/${MINI_APP_NAME}?startapp=${returnUrl}`;
     window.location.href = telegramUrl;
   };
 
