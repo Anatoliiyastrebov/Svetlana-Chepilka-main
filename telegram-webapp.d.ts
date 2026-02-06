@@ -17,6 +17,7 @@ interface TelegramWebApp {
   ready: () => void;
   close: () => void;
   expand: () => void;
+  openLink: (url: string, options?: { try_instant_view?: boolean }) => void;
 }
 
 declare global {

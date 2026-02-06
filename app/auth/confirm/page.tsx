@@ -67,9 +67,14 @@ export default function AuthConfirmPage() {
       const url = new URL(returnUrl);
       url.searchParams.set('tg_user', encodedUser);
       
-      // Redirect back to the webapp
+      // Open in external browser and close Mini App
       setTimeout(() => {
-        window.location.href = url.toString();
+        // Use Telegram's openLink to open in external browser
+        tg.openLink(url.toString());
+        // Close the Mini App after a short delay
+        setTimeout(() => {
+          tg.close();
+        }, 500);
       }, 1000);
       
     } catch (error) {
