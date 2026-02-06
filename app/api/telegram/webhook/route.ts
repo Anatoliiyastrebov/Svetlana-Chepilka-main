@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { setAuthData } from '../auth-store';
 
+// Force dynamic rendering for this route
+export const dynamic = 'force-dynamic';
+
 // This endpoint receives updates from the Telegram bot
 // The bot should send user data when user clicks "Start" with an auth token
 

@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { saveUserToSession } from '../session-store';
 import type { TelegramWebAppUser } from '../../../../telegram-webapp';
 
+// Force dynamic rendering for this route
+export const dynamic = 'force-dynamic';
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();

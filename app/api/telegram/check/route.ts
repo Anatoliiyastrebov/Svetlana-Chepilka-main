@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthData, deleteAuthData } from '../auth-store';
 
+// Force dynamic rendering for this route
+export const dynamic = 'force-dynamic';
+
 // Frontend calls this to check if user has authorized
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
