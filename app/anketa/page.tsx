@@ -92,7 +92,7 @@ export default function AnketaPage() {
       const fileNames = (value as File[]).map(f => f.name).join(', ');
       setFormData((prev) => ({ ...prev, [questionId]: fileNames }));
     } else {
-      setFormData((prev) => ({ ...prev, [questionId]: value }));
+      setFormData((prev) => ({ ...prev, [questionId]: value as string | string[] }));
     }
     // Clear error when user starts typing
     if (errors[questionId]) {
@@ -119,9 +119,9 @@ export default function AnketaPage() {
       });
     }
     // If injuries changed to only "no_issues" or empty, clear additional field error (for infant/child)
-    if (questionId === 'injuries') {
-      const injuriesArray = Array.isArray(value) ? value : [value];
-      const hasOtherThanNoIssues = injuriesArray.some((val: string) => val !== 'no_issues');
+    if (questionId === 'injuries' && typeof value !== 'object') {
+      const injuriesArray = Array.isArray(value) ? value as string[] : [value as string];
+      const hasOtherThanNoIssues = injuriesArray.some((val) => val !== 'no_issues');
       if (!hasOtherThanNoIssues) {
         setErrors((prev) => {
           const newErrors = { ...prev };
@@ -139,8 +139,8 @@ export default function AnketaPage() {
       });
     }
     // If allergies_present changed and "other" is not selected, clear additional field error
-    if (questionId === 'allergies_present') {
-      const allergiesArray = Array.isArray(value) ? value : [value];
+    if (questionId === 'allergies_present' && !(Array.isArray(value) && value[0] instanceof File)) {
+      const allergiesArray = Array.isArray(value) ? value as string[] : [value as string];
       const hasOther = allergiesArray.includes('other');
       if (!hasOther) {
         setErrors((prev) => {
@@ -151,8 +151,8 @@ export default function AnketaPage() {
       }
     }
     // If allergies changed and "other" is not selected, clear additional field error (for backward compatibility)
-    if (questionId === 'allergies') {
-      const allergiesArray = Array.isArray(value) ? value : [value];
+    if (questionId === 'allergies' && !(Array.isArray(value) && value[0] instanceof File)) {
+      const allergiesArray = Array.isArray(value) ? value as string[] : [value as string];
       const hasOther = allergiesArray.includes('other');
       if (!hasOther) {
         setErrors((prev) => {
@@ -163,8 +163,8 @@ export default function AnketaPage() {
       }
     }
     // If skin_problems changed and "other" is not selected, clear additional field error
-    if (questionId === 'skin_problems') {
-      const skinProblemsArray = Array.isArray(value) ? value : [value];
+    if (questionId === 'skin_problems' && !(Array.isArray(value) && value[0] instanceof File)) {
+      const skinProblemsArray = Array.isArray(value) ? value as string[] : [value as string];
       const hasOther = skinProblemsArray.includes('other');
       if (!hasOther) {
         setErrors((prev) => {
@@ -175,8 +175,8 @@ export default function AnketaPage() {
       }
     }
     // If skin_condition changed and "other" is not selected, clear additional field error (for backward compatibility)
-    if (questionId === 'skin_condition') {
-      const skinConditionArray = Array.isArray(value) ? value : [value];
+    if (questionId === 'skin_condition' && !(Array.isArray(value) && value[0] instanceof File)) {
+      const skinConditionArray = Array.isArray(value) ? value as string[] : [value as string];
       const hasOther = skinConditionArray.includes('other');
       if (!hasOther) {
         setErrors((prev) => {
@@ -187,8 +187,8 @@ export default function AnketaPage() {
       }
     }
     // If chronic_autoimmune changed and "other" is not selected, clear additional field error
-    if (questionId === 'chronic_autoimmune') {
-      const chronicArray = Array.isArray(value) ? value : [value];
+    if (questionId === 'chronic_autoimmune' && !(Array.isArray(value) && value[0] instanceof File)) {
+      const chronicArray = Array.isArray(value) ? value as string[] : [value as string];
       const hasOther = chronicArray.includes('other');
       if (!hasOther) {
         setErrors((prev) => {
@@ -199,8 +199,8 @@ export default function AnketaPage() {
       }
     }
     // If covid_complications changed and "other" is not selected, clear additional field error
-    if (questionId === 'covid_complications') {
-      const covidArray = Array.isArray(value) ? value : [value];
+    if (questionId === 'covid_complications' && !(Array.isArray(value) && value[0] instanceof File)) {
+      const covidArray = Array.isArray(value) ? value as string[] : [value as string];
       const hasOther = covidArray.includes('other');
       if (!hasOther) {
         setErrors((prev) => {

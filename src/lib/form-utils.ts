@@ -669,18 +669,13 @@ export const sendToTelegram = async (
   const BOT_TOKEN = process.env.NEXT_PUBLIC_TELEGRAM_BOT_TOKEN;
   const CHAT_ID = process.env.NEXT_PUBLIC_TELEGRAM_CHAT_ID;
 
-  // Debug: Log all environment variables (without exposing sensitive data)
-  const allViteEnvKeys = Object.keys(import.meta.env).filter(key => key.startsWith('VITE_'));
+  // Debug: Log environment variables status
   console.log('Environment check:', {
     hasToken: !!BOT_TOKEN,
     hasChatId: !!CHAT_ID,
     tokenLength: BOT_TOKEN?.length || 0,
     chatIdLength: CHAT_ID?.length || 0,
-    mode: import.meta.env.MODE,
-    prod: import.meta.env.PROD,
-    dev: import.meta.env.DEV,
-    allEnvKeys: allViteEnvKeys,
-    allEnvValues: allViteEnvKeys.map(key => ({ key, hasValue: !!import.meta.env[key] }))
+    nodeEnv: process.env.NODE_ENV
   });
 
   // Validate that tokens are set
@@ -690,21 +685,18 @@ export const sendToTelegram = async (
 Please check:
 1. Go to Vercel → Project settings → Environment variables
 2. Make sure these variables are set:
-   - Key: VITE_TELEGRAM_BOT_TOKEN, Value: your_bot_token
-   - Key: VITE_TELEGRAM_CHAT_ID, Value: your_chat_id
+   - Key: NEXT_PUBLIC_TELEGRAM_BOT_TOKEN, Value: your_bot_token
+   - Key: NEXT_PUBLIC_TELEGRAM_CHAT_ID, Value: your_chat_id
 3. After adding variables, redeploy your site
 4. Wait for the build to complete
 
 Current status:
-- VITE_TELEGRAM_BOT_TOKEN: ${BOT_TOKEN ? 'SET' : 'NOT SET'}
-- VITE_TELEGRAM_CHAT_ID: ${CHAT_ID ? 'SET' : 'NOT SET'}
-- All VITE_ variables found: ${allViteEnvKeys.join(', ') || 'NONE'}`;
+- NEXT_PUBLIC_TELEGRAM_BOT_TOKEN: ${BOT_TOKEN ? 'SET' : 'NOT SET'}
+- NEXT_PUBLIC_TELEGRAM_CHAT_ID: ${CHAT_ID ? 'SET' : 'NOT SET'}`;
     
     console.error('Environment variables check failed:', {
       BOT_TOKEN: BOT_TOKEN ? 'SET (hidden)' : 'NOT SET',
-      CHAT_ID: CHAT_ID ? 'SET (hidden)' : 'NOT SET',
-      allViteEnvKeys,
-      mode: import.meta.env.MODE
+      CHAT_ID: CHAT_ID ? 'SET (hidden)' : 'NOT SET'
     });
     return { success: false, error: errorMsg };
   }

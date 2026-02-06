@@ -18,7 +18,7 @@ interface TelegramLoginButtonProps {
 // Declare the global callback function
 declare global {
   interface Window {
-    onTelegramAuth: (user: TelegramUser) => void;
+    onTelegramAuth?: (user: TelegramUser) => void;
   }
 }
 

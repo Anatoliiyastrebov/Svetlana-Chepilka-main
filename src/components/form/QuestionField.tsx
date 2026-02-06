@@ -28,7 +28,7 @@ export const QuestionField: React.FC<QuestionFieldProps> = ({
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const handleCheckboxChange = (optionValue: string, checked: boolean) => {
-    const currentValues = Array.isArray(value) ? value : [];
+    const currentValues = (Array.isArray(value) ? value : []) as string[];
     
     // Special handling for "no_issues" option
     if (optionValue === 'no_issues') {
@@ -114,14 +114,14 @@ export const QuestionField: React.FC<QuestionFieldProps> = ({
         );
 
       case 'checkbox':
-        const currentValues = Array.isArray(value) ? value : [];
+        const checkboxValues = (Array.isArray(value) ? value : []) as string[];
         return (
           <div className="flex flex-wrap gap-3">
             {question.options?.map((option) => (
               <label
                 key={option.value}
                 className={`flex items-center gap-2 px-4 py-2.5 rounded-xl cursor-pointer transition-all ${
-                  currentValues.includes(option.value)
+                  checkboxValues.includes(option.value)
                     ? 'bg-primary text-primary-foreground'
                     : 'bg-secondary text-secondary-foreground hover:bg-muted'
                 }`}
@@ -129,7 +129,7 @@ export const QuestionField: React.FC<QuestionFieldProps> = ({
                 <input
                   type="checkbox"
                   value={option.value}
-                  checked={currentValues.includes(option.value)}
+                  checked={checkboxValues.includes(option.value)}
                   onChange={(e) => handleCheckboxChange(option.value, e.target.checked)}
                   className="sr-only"
                 />
@@ -223,7 +223,7 @@ export const QuestionField: React.FC<QuestionFieldProps> = ({
         }
         // Special handling for diabetes - show only if diabetes_stage is selected
         if (question.id === 'diabetes') {
-          const currentValues = Array.isArray(value) ? value : [];
+          const currentValues = (Array.isArray(value) ? value : []) as string[];
           return currentValues.includes('diabetes_stage');
         }
         // Special handling for yes/no questions - show additional when "yes" is selected
@@ -237,7 +237,7 @@ export const QuestionField: React.FC<QuestionFieldProps> = ({
         }
         // For checkbox questions, show only if "other" is selected
         if (question.type === 'checkbox') {
-          const currentValues = Array.isArray(value) ? value : [];
+          const currentValues = (Array.isArray(value) ? value : []) as string[];
           return currentValues.includes('other');
         }
         // For other types (text, number, textarea), don't show additional
