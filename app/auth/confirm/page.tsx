@@ -1,15 +1,60 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import Script from 'next/script';
 import { Loader2, CheckCircle, XCircle } from 'lucide-react';
+
+// Environment variable for fallback URL
+const WEBAPP_URL = process.env.NEXT_PUBLIC_WEBAPP_URL || 'https://svetlana-chepilka-main.vercel.app';
+
+// Safe Base64 encoding for Unicode strings
+const safeEncode = (str: string): string => {
+  try {
+    return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, (_, p1) => 
+      String.fromCharCode(parseInt(p1, 16))
+    ));
+  } catch {
+    return '';
+  }
+};
+
+// Safe Base64 decoding for Unicode strings
+const safeDecode = (str: string): string => {
+  try {
+    return decodeURIComponent(
+      Array.from(atob(str))
+        .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .join('')
+    );
+  } catch {
+    return '';
+  }
+};
+
+// Validate URL to prevent open redirect attacks
+const isValidReturnUrl = (url: string): boolean => {
+  try {
+    const parsed = new URL(url);
+    // Only allow same domain or vercel.app
+    const allowedHosts = [
+      'svetlana-chepilka-main.vercel.app',
+      'localhost',
+      '127.0.0.1',
+    ];
+    return allowedHosts.some(host => 
+      parsed.hostname === host || parsed.hostname.endsWith('.vercel.app')
+    );
+  } catch {
+    return false;
+  }
+};
 
 export default function AuthConfirmPage() {
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [message, setMessage] = useState('Загрузка...');
   const [scriptLoaded, setScriptLoaded] = useState(false);
 
-  const handleAuth = async () => {
+  const handleAuth = useCallback(() => {
     try {
       setMessage('Авторизация...');
       
@@ -26,64 +71,69 @@ export default function AuthConfirmPage() {
 
       const user = tg.initDataUnsafe.user;
 
-      if (!user) {
+      if (!user || !user.id || !user.first_name) {
         setStatus('error');
         setMessage('Не удалось получить данные пользователя. Убедитесь, что открыли через Telegram.');
         return;
       }
 
-      // Encode user data
+      // Prepare user data (sanitize strings)
       const userData = {
         id: user.id,
-        first_name: user.first_name,
-        last_name: user.last_name || '',
-        username: user.username || '',
-        auth_time: Date.now(),
+        first_name: String(user.first_name || '').slice(0, 100),
+        last_name: String(user.last_name || '').slice(0, 100),
+        username: String(user.username || '').slice(0, 50),
+        auth_date: Math.floor(Date.now() / 1000),
       };
       
-      // Store user data in a way that can be shared
-      const encodedUser = btoa(encodeURIComponent(JSON.stringify(userData)));
+      // Encode user data
+      const encodedUser = safeEncode(JSON.stringify(userData));
       
-      // Store in Telegram CloudStorage if available, or just show success
+      if (!encodedUser) {
+        setStatus('error');
+        setMessage('Ошибка кодирования данных');
+        return;
+      }
+
       setStatus('success');
       setMessage('Авторизация успешна!');
 
-      // Try to copy the auth data to clipboard for fallback
-      try {
-        // Store the encoded user data that the website can read
-        // We'll pass it via openLink
-        const startParam = tg.initDataUnsafe.start_param;
-        
-        // Get return URL from start_param
-        let returnUrl = 'https://svetlana-chepilka-main.vercel.app/anketa';
-        if (startParam) {
-          try {
-            returnUrl = decodeURIComponent(atob(startParam));
-          } catch {
-            console.error('Failed to decode return URL');
-          }
+      // Get return URL from start_param
+      let returnUrl = `${WEBAPP_URL}/anketa`;
+      const startParam = tg.initDataUnsafe.start_param;
+      
+      if (startParam) {
+        const decodedUrl = safeDecode(startParam);
+        if (decodedUrl && isValidReturnUrl(decodedUrl)) {
+          returnUrl = decodedUrl;
         }
+      }
 
-        // Build redirect URL with encoded user data
-        const url = new URL(returnUrl);
-        url.searchParams.set('tg_user', encodedUser);
+      // Build redirect URL with encoded user data
+      const url = new URL(returnUrl);
+      url.searchParams.set('tg_user', encodedUser);
 
-        // After 2 seconds, open in browser and close
-        setTimeout(() => {
+      // Redirect after short delay
+      const redirectTimer = setTimeout(() => {
+        try {
           tg.openLink(url.toString());
           setTimeout(() => tg.close(), 300);
-        }, 1500);
-        
-      } catch (e) {
-        console.error('Error:', e);
-      }
+        } catch (e) {
+          // Fallback: just close and hope user returns manually
+          console.error('Failed to open link:', e);
+          tg.close();
+        }
+      }, 1200);
+
+      // Cleanup on unmount
+      return () => clearTimeout(redirectTimer);
       
     } catch (error) {
       console.error('Auth error:', error);
       setStatus('error');
       setMessage('Произошла ошибка авторизации');
     }
-  };
+  }, []);
 
   // Run auth when script is loaded
   useEffect(() => {
@@ -91,7 +141,17 @@ export default function AuthConfirmPage() {
       const timer = setTimeout(handleAuth, 300);
       return () => clearTimeout(timer);
     }
-  }, [scriptLoaded]);
+  }, [scriptLoaded, handleAuth]);
+
+  const handleRetry = useCallback(() => {
+    setStatus('loading');
+    setMessage('Повторная попытка...');
+    setTimeout(handleAuth, 500);
+  }, [handleAuth]);
+
+  const handleClose = useCallback(() => {
+    window.Telegram?.WebApp?.close();
+  }, []);
 
   return (
     <>
@@ -140,17 +200,13 @@ export default function AuthConfirmPage() {
               <p className="text-gray-600 mb-4">{message}</p>
               <div className="space-y-2">
                 <button
-                  onClick={() => {
-                    setStatus('loading');
-                    setMessage('Повторная попытка...');
-                    setTimeout(handleAuth, 500);
-                  }}
+                  onClick={handleRetry}
                   className="w-full px-6 py-2 bg-blue-500 hover:bg-blue-600 rounded-lg text-white transition-colors"
                 >
                   Попробовать снова
                 </button>
                 <button
-                  onClick={() => window.Telegram?.WebApp?.close()}
+                  onClick={handleClose}
                   className="w-full px-6 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-700 transition-colors"
                 >
                   Закрыть
