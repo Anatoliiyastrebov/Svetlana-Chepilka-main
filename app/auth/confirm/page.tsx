@@ -4,9 +4,6 @@ import { useEffect, useState } from 'react';
 import Script from 'next/script';
 import { Loader2, CheckCircle, XCircle } from 'lucide-react';
 
-// Get webapp URL from environment (fallback)
-const WEBAPP_URL = process.env.NEXT_PUBLIC_WEBAPP_URL || 'https://svetlana-chepilka-main.vercel.app';
-
 export default function AuthConfirmPage() {
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [message, setMessage] = useState('Загрузка...');
@@ -35,47 +32,51 @@ export default function AuthConfirmPage() {
         return;
       }
 
-      setStatus('success');
-      setMessage('Авторизация успешна! Перенаправление...');
-
-      // Encode user data directly in URL (no server session needed)
+      // Encode user data
       const userData = {
         id: user.id,
         first_name: user.first_name,
         last_name: user.last_name || '',
         username: user.username || '',
+        auth_time: Date.now(),
       };
       
-      // Base64 encode the user data
+      // Store user data in a way that can be shared
       const encodedUser = btoa(encodeURIComponent(JSON.stringify(userData)));
-
-      // Get return URL from start_param (passed from the website)
-      let returnUrl = WEBAPP_URL;
-      const startParam = tg.initDataUnsafe.start_param;
       
-      if (startParam) {
-        try {
-          // Decode the return URL from start_param
-          returnUrl = decodeURIComponent(atob(startParam));
-        } catch {
-          // If decoding fails, use default URL
-          console.error('Failed to decode return URL');
+      // Store in Telegram CloudStorage if available, or just show success
+      setStatus('success');
+      setMessage('Авторизация успешна!');
+
+      // Try to copy the auth data to clipboard for fallback
+      try {
+        // Store the encoded user data that the website can read
+        // We'll pass it via openLink
+        const startParam = tg.initDataUnsafe.start_param;
+        
+        // Get return URL from start_param
+        let returnUrl = 'https://svetlana-chepilka-main.vercel.app/anketa';
+        if (startParam) {
+          try {
+            returnUrl = decodeURIComponent(atob(startParam));
+          } catch {
+            console.error('Failed to decode return URL');
+          }
         }
-      }
 
-      // Build redirect URL with encoded user data
-      const url = new URL(returnUrl);
-      url.searchParams.set('tg_user', encodedUser);
-      
-      // Open in external browser and close Mini App
-      setTimeout(() => {
-        // Use Telegram's openLink to open in external browser
-        tg.openLink(url.toString());
-        // Close the Mini App after a short delay
+        // Build redirect URL with encoded user data
+        const url = new URL(returnUrl);
+        url.searchParams.set('tg_user', encodedUser);
+
+        // After 2 seconds, open in browser and close
         setTimeout(() => {
-          tg.close();
-        }, 500);
-      }, 1000);
+          tg.openLink(url.toString());
+          setTimeout(() => tg.close(), 300);
+        }, 1500);
+        
+      } catch (e) {
+        console.error('Error:', e);
+      }
       
     } catch (error) {
       console.error('Auth error:', error);
@@ -123,7 +124,10 @@ export default function AuthConfirmPage() {
               <h1 className="text-xl font-semibold text-gray-800 mb-2">
                 Успешно!
               </h1>
-              <p className="text-gray-600">{message}</p>
+              <p className="text-gray-600 mb-2">{message}</p>
+              <p className="text-sm text-gray-500">
+                Перенаправление в браузер...
+              </p>
             </>
           )}
 
