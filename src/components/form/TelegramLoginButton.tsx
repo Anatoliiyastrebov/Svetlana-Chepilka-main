@@ -174,14 +174,19 @@ export const TelegramLoginButton: React.FC<TelegramLoginButtonProps> = ({
     setIsLoading(true);
     
     try {
-      const returnUrl = safeEncode(window.location.href);
-      if (!returnUrl) {
-        console.error('Failed to encode return URL');
-        setIsLoading(false);
-        return;
-      }
+      // Extract only essential params (lang) - startapp has 64 char limit
+      const url = new URL(window.location.href);
+      const lang = url.searchParams.get('lang') || 'ru';
+      const path = url.pathname || '/anketa';
       
-      const telegramUrl = `https://t.me/${BOT_USERNAME}/${MINI_APP_NAME}?startapp=${returnUrl}`;
+      // Create short param string: path|lang (e.g., "/anketa|ru")
+      const params = `${path}|${lang}`;
+      const encoded = btoa(params); // This will be short enough
+      
+      console.log('Opening Mini App with params:', params, 'encoded:', encoded);
+      
+      // Open Telegram Mini App with encoded params
+      const telegramUrl = `https://t.me/${BOT_USERNAME}/${MINI_APP_NAME}?startapp=${encoded}`;
       window.location.href = telegramUrl;
     } catch (error) {
       console.error('Error during login redirect:', error);

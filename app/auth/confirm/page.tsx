@@ -88,18 +88,28 @@ export default function AuthConfirmPage() {
       }
 
       // Get return URL from start_param
-      let returnUrl = `${WEBAPP_URL}/anketa`;
+      // Format: path|lang encoded in base64 (e.g., "/anketa|ru")
+      let returnPath = '/anketa';
+      let returnLang = 'ru';
       const startParam = tg.initDataUnsafe?.start_param;
       
       console.log('start_param:', startParam);
       
       if (startParam) {
-        const decodedUrl = safeDecode(startParam);
-        console.log('Decoded URL:', decodedUrl);
-        if (decodedUrl && decodedUrl.startsWith('http')) {
-          returnUrl = decodedUrl;
+        try {
+          const decoded = atob(startParam);
+          console.log('Decoded params:', decoded);
+          const [path, lang] = decoded.split('|');
+          if (path) returnPath = path;
+          if (lang) returnLang = lang;
+        } catch (e) {
+          console.error('Failed to decode start_param:', e);
         }
       }
+      
+      // Build full return URL
+      const returnUrl = `${WEBAPP_URL}${returnPath}?lang=${returnLang}`;
+      console.log('Return URL:', returnUrl);
 
       // Build redirect URL with encoded user data
       const url = new URL(returnUrl);
