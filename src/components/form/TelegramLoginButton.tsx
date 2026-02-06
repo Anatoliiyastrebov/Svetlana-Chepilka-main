@@ -174,13 +174,14 @@ export const TelegramLoginButton: React.FC<TelegramLoginButtonProps> = ({
     setIsLoading(true);
     
     try {
-      // Extract only essential params (lang) - startapp has 64 char limit
+      // Extract essential params - startapp has 64 char limit
       const url = new URL(window.location.href);
       const lang = url.searchParams.get('lang') || 'ru';
+      const type = url.searchParams.get('type') || 'infant';
       const path = url.pathname || '/anketa';
       
-      // Create short param string: path|lang (e.g., "/anketa|ru")
-      const params = `${path}|${lang}`;
+      // Create short param string: path|lang|type (e.g., "/anketa|ru|adult")
+      const params = `${path}|${lang}|${type}`;
       const encoded = btoa(params);
       
       // Build Telegram Mini App URL
@@ -188,14 +189,12 @@ export const TelegramLoginButton: React.FC<TelegramLoginButtonProps> = ({
       
       console.log('Opening Mini App:', telegramUrl);
       
-      // Try multiple methods to open Telegram
-      // Method 1: Direct navigation
+      // Navigate to Telegram
       window.location.href = telegramUrl;
       
       // Fallback after 2 seconds if still on page
       setTimeout(() => {
         if (document.hasFocus()) {
-          // Try opening in new window
           window.open(telegramUrl, '_blank');
         }
         setIsLoading(false);
