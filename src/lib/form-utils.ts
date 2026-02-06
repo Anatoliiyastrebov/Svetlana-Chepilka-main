@@ -526,11 +526,13 @@ export const generateMarkdown = (
             : String(value);
         }
 
-        // Не дублируем заголовок секции: если подпись вопроса совпадает с названием секции — выводим только ответ
+        // Check if label should be skipped (same as section title or generic "Отметьте подходящее")
         const sectionTitle = (section.title[lang] || '').replace(/\s+/g, ' ').trim();
         const questionLabel = (label || '').replace(/\s+/g, ' ').trim();
-        const labelSameAsSection = questionLabel === sectionTitle;
-        if (labelSameAsSection) {
+        const genericLabels = ['Отметьте подходящее', 'Select applicable', 'Mark applicable'];
+        const skipLabel = questionLabel === sectionTitle || genericLabels.includes(questionLabel);
+        
+        if (skipLabel) {
           if (digestionQuestionPassed) {
             html += `${questionNumber}. `;
             questionNumber++;
