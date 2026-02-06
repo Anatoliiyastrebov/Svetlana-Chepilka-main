@@ -296,7 +296,7 @@ export default function AnketaPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const validationErrors = validateForm(sections, formData, contactData, language, additionalData);
+    const validationErrors = validateForm(sections, formData, contactData, language, additionalData, uploadedFiles);
     setErrors(validationErrors);
 
     if (Object.keys(validationErrors).length > 0) {

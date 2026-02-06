@@ -242,7 +242,8 @@ export const validateForm = (
   formData: FormData,
   contactData: ContactData,
   lang: Language,
-  additionalData?: FormAdditionalData
+  additionalData?: FormAdditionalData,
+  uploadedFiles?: Record<string, File[]>
 ): FormErrors => {
   const errors: FormErrors = {};
   const t = translations[lang];
@@ -428,6 +429,16 @@ export const validateForm = (
       if (!diabetesAdditional || diabetesAdditional.trim() === '') {
         errors['diabetes_additional'] = t.required;
       }
+    }
+  }
+
+  // Validate files: if "has_tests_or_ultrasound" is "yes", at least one file must be uploaded
+  if (formData['has_tests_or_ultrasound'] === 'yes') {
+    const files = uploadedFiles?.['attach_files'] || [];
+    if (files.length === 0) {
+      errors['attach_files'] = lang === 'ru' 
+        ? 'Прикрепите хотя бы один файл с анализами' 
+        : 'Please attach at least one file with test results';
     }
   }
 
