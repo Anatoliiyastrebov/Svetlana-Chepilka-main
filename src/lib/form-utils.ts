@@ -249,6 +249,17 @@ export const validateForm = (
 
   sections.forEach((section) => {
     section.questions.forEach((question) => {
+      // Skip conditionally hidden fields
+      if (question.id === 'pressure_medication' && formData['pressure'] !== 'high') {
+        return;
+      }
+      if (question.id === 'weight_change' && formData['weight_satisfaction'] !== 'no') {
+        return;
+      }
+      if (question.id === 'attach_files' && formData['has_tests_or_ultrasound'] !== 'yes') {
+        return;
+      }
+
       if (question.required) {
         const value = formData[question.id];
         
