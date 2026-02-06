@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import Script from 'next/script';
-import { Loader2, CheckCircle, XCircle, UserCheck } from 'lucide-react';
+import { Loader2, CheckCircle, XCircle, UserCheck, ExternalLink } from 'lucide-react';
 
 // Environment variable for fallback URL
 const WEBAPP_URL = process.env.NEXT_PUBLIC_WEBAPP_URL || 'https://svetlana-chepilka-main.vercel.app';
@@ -35,7 +35,7 @@ const safeDecode = (str: string): string => {
 };
 
 export default function AuthConfirmPage() {
-  const [status, setStatus] = useState<'loading' | 'ready' | 'redirecting' | 'success' | 'error'>('loading');
+  const [status, setStatus] = useState<'loading' | 'ready' | 'success' | 'error'>('loading');
   const [message, setMessage] = useState('Загрузка...');
   const [scriptLoaded, setScriptLoaded] = useState(false);
   const [redirectUrl, setRedirectUrl] = useState<string | null>(null);
@@ -91,8 +91,11 @@ export default function AuthConfirmPage() {
       let returnUrl = `${WEBAPP_URL}/anketa`;
       const startParam = tg.initDataUnsafe?.start_param;
       
+      console.log('start_param:', startParam);
+      
       if (startParam) {
         const decodedUrl = safeDecode(startParam);
+        console.log('Decoded URL:', decodedUrl);
         if (decodedUrl && decodedUrl.startsWith('http')) {
           returnUrl = decodedUrl;
         }
@@ -102,7 +105,10 @@ export default function AuthConfirmPage() {
       const url = new URL(returnUrl);
       url.searchParams.set('tg_user', encodedUser);
       
-      setRedirectUrl(url.toString());
+      const finalUrl = url.toString();
+      console.log('Final URL:', finalUrl);
+      
+      setRedirectUrl(finalUrl);
       setStatus('ready');
       setMessage('Готово к авторизации');
       
@@ -116,33 +122,31 @@ export default function AuthConfirmPage() {
   // Handle confirm button click
   const handleConfirm = useCallback(() => {
     if (!redirectUrl) return;
-    
-    setStatus('redirecting');
-    setMessage('Переход к анкете...');
 
     const tg = window.Telegram?.WebApp;
+    
+    console.log('Opening URL:', redirectUrl);
 
-    // Redirect after short delay
-    setTimeout(() => {
-      try {
-        if (tg?.openLink) {
-          tg.openLink(redirectUrl);
-          // Close Mini App after 3 seconds
-          setTimeout(() => {
-            setStatus('success');
-            setMessage('Готово!');
-            setTimeout(() => {
-              if (tg?.close) tg.close();
-            }, 2000);
-          }, 1000);
-        } else {
-          window.open(redirectUrl, '_blank');
-        }
-      } catch (e) {
-        console.error('Redirect error:', e);
+    try {
+      // Try to open link in external browser
+      if (tg?.openLink) {
+        tg.openLink(redirectUrl, { try_instant_view: false });
+      } else {
+        // Fallback - open in new tab
         window.open(redirectUrl, '_blank');
       }
-    }, 500);
+      
+      // Show success and close button
+      setStatus('success');
+      setMessage('Ссылка открыта в браузере');
+      
+    } catch (e) {
+      console.error('Open link error:', e);
+      // Fallback
+      window.open(redirectUrl, '_blank');
+      setStatus('success');
+      setMessage('Ссылка открыта');
+    }
   }, [redirectUrl]);
 
   // Run prepare when script is loaded
@@ -162,6 +166,18 @@ export default function AuthConfirmPage() {
   const handleClose = useCallback(() => {
     window.Telegram?.WebApp?.close();
   }, []);
+
+  // Retry opening link
+  const handleOpenAgain = useCallback(() => {
+    if (redirectUrl) {
+      const tg = window.Telegram?.WebApp;
+      if (tg?.openLink) {
+        tg.openLink(redirectUrl, { try_instant_view: false });
+      } else {
+        window.open(redirectUrl, '_blank');
+      }
+    }
+  }, [redirectUrl]);
 
   return (
     <>
@@ -205,36 +221,41 @@ export default function AuthConfirmPage() {
                 </p>
               )}
               <p className="text-gray-500 text-sm mb-6">
-                Нажмите кнопку для подтверждения авторизации и возврата к анкете
+                Нажмите кнопку для подтверждения и перехода к анкете
               </p>
               <button
                 onClick={handleConfirm}
-                className="w-full px-6 py-3 bg-blue-500 hover:bg-blue-600 rounded-xl text-white font-medium transition-colors text-lg"
+                className="w-full px-6 py-3 bg-blue-500 hover:bg-blue-600 rounded-xl text-white font-medium transition-colors text-lg flex items-center justify-center gap-2"
               >
-                Подтвердить авторизацию
+                <span>Подтвердить и перейти</span>
+                <ExternalLink className="w-5 h-5" />
               </button>
             </>
           )}
 
-          {/* Redirecting */}
-          {status === 'redirecting' && (
-            <>
-              <Loader2 className="w-16 h-16 text-blue-500 animate-spin mx-auto mb-4" />
-              <h1 className="text-xl font-semibold text-gray-800 mb-2">
-                Переход...
-              </h1>
-              <p className="text-gray-600">{message}</p>
-            </>
-          )}
-
-          {/* Success */}
+          {/* Success - link opened */}
           {status === 'success' && (
             <>
               <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
               <h1 className="text-xl font-semibold text-gray-800 mb-2">
                 Готово!
               </h1>
-              <p className="text-gray-600">Окно закроется автоматически...</p>
+              <p className="text-gray-600 mb-6">{message}</p>
+              <div className="space-y-3">
+                <button
+                  onClick={handleOpenAgain}
+                  className="w-full px-6 py-2 bg-blue-100 hover:bg-blue-200 rounded-lg text-blue-700 transition-colors flex items-center justify-center gap-2"
+                >
+                  <span>Открыть ещё раз</span>
+                  <ExternalLink className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={handleClose}
+                  className="w-full px-6 py-3 bg-gray-800 hover:bg-gray-900 rounded-xl text-white font-medium transition-colors"
+                >
+                  Закрыть это окно
+                </button>
+              </div>
             </>
           )}
 
