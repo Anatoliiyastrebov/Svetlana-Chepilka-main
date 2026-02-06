@@ -548,16 +548,22 @@ export const generateMarkdown = (
   // Contact section
   const contacts: string[] = [];
   
-  // Telegram user (from Telegram Login Widget)
+  // Telegram user (from Telegram authorization)
   if (contactData.telegramUser) {
     const user = contactData.telegramUser;
-    const fullName = `${user.first_name}${user.last_name ? ' ' + user.last_name : ''}`;
     const profileLink = user.username 
       ? `https://t.me/${user.username}` 
       : `tg://user?id=${user.id}`;
     const openProfileLabel = lang === 'ru' ? 'Открыть профиль' : 'Open profile';
     
-    contacts.push(`Telegram: ${escapeHtml(fullName)}${user.username ? ' (@' + escapeHtml(user.username) + ')' : ''}\nID: ${user.id}\n<a href="${profileLink}">${openProfileLabel}</a>`);
+    // Build contact info - only show ID if we have it (not 0)
+    let telegramInfo = `Telegram: @${escapeHtml(user.username || user.first_name)}`;
+    if (user.id && user.id !== 0) {
+      telegramInfo += `\nID: ${user.id}`;
+    }
+    telegramInfo += `\n\n<a href="${profileLink}">👤 ${openProfileLabel}</a>`;
+    
+    contacts.push(telegramInfo);
   } else if (contactData.telegram && contactData.telegram.trim() !== '') {
     // Fallback to manual input
     const cleanTelegram = contactData.telegram.replace(/^@/, '').trim();

@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useEffect, useRef } from 'react';
+import React, { useState } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { MessageCircle, CheckCircle, User } from 'lucide-react';
+import { MessageCircle, CheckCircle, User, ExternalLink } from 'lucide-react';
 import { TelegramUserData } from '@/lib/form-utils';
 
 // Re-export for convenience
@@ -15,13 +15,6 @@ interface TelegramLoginButtonProps {
   error?: string;
 }
 
-// Declare the global callback function
-declare global {
-  interface Window {
-    onTelegramAuth?: (user: TelegramUser) => void;
-  }
-}
-
 export const TelegramLoginButton: React.FC<TelegramLoginButtonProps> = ({
   botUsername,
   onAuth,
@@ -29,38 +22,67 @@ export const TelegramLoginButton: React.FC<TelegramLoginButtonProps> = ({
   error,
 }) => {
   const { language } = useLanguage();
-  const containerRef = useRef<HTMLDivElement>(null);
+  const [step, setStep] = useState<'initial' | 'confirming' | 'entering'>('initial');
+  const [username, setUsername] = useState('');
+  const [inputError, setInputError] = useState('');
 
-  useEffect(() => {
-    // Set up the global callback
-    window.onTelegramAuth = (user: TelegramUser) => {
-      onAuth(user);
+  // Open Telegram app with bot
+  const openTelegramBot = () => {
+    // Deep link to open Telegram app with the bot
+    const deepLink = `tg://resolve?domain=${botUsername}&start=auth`;
+    const webLink = `https://t.me/${botUsername}?start=auth`;
+    
+    // Try deep link first, fallback to web link
+    const link = document.createElement('a');
+    link.href = deepLink;
+    link.click();
+    
+    // Set a timeout to fallback to web link if deep link doesn't work
+    setTimeout(() => {
+      window.open(webLink, '_blank');
+    }, 1000);
+    
+    // Move to confirming step
+    setStep('confirming');
+  };
+
+  // Handle username submission
+  const handleSubmitUsername = () => {
+    let cleanUsername = username.trim();
+    
+    // Remove @ if present
+    if (cleanUsername.startsWith('@')) {
+      cleanUsername = cleanUsername.substring(1);
+    }
+    
+    // Validate username format
+    if (!cleanUsername) {
+      setInputError(language === 'ru' 
+        ? 'Введите ваш Telegram username' 
+        : 'Enter your Telegram username');
+      return;
+    }
+    
+    // Telegram usernames: 5-32 characters, alphanumeric and underscores
+    if (!/^[a-zA-Z][a-zA-Z0-9_]{4,31}$/.test(cleanUsername)) {
+      setInputError(language === 'ru' 
+        ? 'Неверный формат username. Username должен содержать 5-32 символа (буквы, цифры, _)' 
+        : 'Invalid username format. Must be 5-32 characters (letters, numbers, _)');
+      return;
+    }
+    
+    // Create user data object
+    const userData: TelegramUser = {
+      id: 0, // We don't have the ID when using username-based auth
+      first_name: cleanUsername,
+      username: cleanUsername,
+      auth_date: Math.floor(Date.now() / 1000),
+      hash: '', // Not used for this flow
     };
-
-    // Clean up
-    return () => {
-      delete window.onTelegramAuth;
-    };
-  }, [onAuth]);
-
-  useEffect(() => {
-    if (!containerRef.current || telegramUser) return;
-
-    // Clear container
-    containerRef.current.innerHTML = '';
-
-    // Create Telegram Login Widget script
-    const script = document.createElement('script');
-    script.src = 'https://telegram.org/js/telegram-widget.js?22';
-    script.setAttribute('data-telegram-login', botUsername);
-    script.setAttribute('data-size', 'large');
-    script.setAttribute('data-radius', '12');
-    script.setAttribute('data-onauth', 'onTelegramAuth(user)');
-    script.setAttribute('data-request-access', 'write');
-    script.async = true;
-
-    containerRef.current.appendChild(script);
-  }, [botUsername, telegramUser]);
+    
+    onAuth(userData);
+    setInputError('');
+  };
 
   // Get profile link
   const getProfileLink = (user: TelegramUser): string => {
@@ -70,21 +92,14 @@ export const TelegramLoginButton: React.FC<TelegramLoginButtonProps> = ({
     return `tg://user?id=${user.id}`;
   };
 
+  // If already authorized
   if (telegramUser) {
     return (
       <div className="space-y-3">
         <div className="bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-xl p-4">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden">
-              {telegramUser.photo_url ? (
-                <img
-                  src={telegramUser.photo_url}
-                  alt={telegramUser.first_name}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <User className="w-6 h-6 text-primary" />
-              )}
+              <User className="w-6 h-6 text-primary" />
             </div>
             <div className="flex-1">
               <div className="flex items-center gap-2">
@@ -94,27 +109,20 @@ export const TelegramLoginButton: React.FC<TelegramLoginButtonProps> = ({
                 </span>
               </div>
               <p className="text-foreground font-medium">
-                {telegramUser.first_name} {telegramUser.last_name || ''}
+                @{telegramUser.username}
               </p>
-              {telegramUser.username && (
-                <p className="text-sm text-muted-foreground">@{telegramUser.username}</p>
-              )}
             </div>
           </div>
         </div>
-        <div className="bg-accent/50 rounded-xl p-3">
-          <p className="text-sm text-muted-foreground mb-1">
-            {language === 'ru' ? 'Ссылка на профиль' : 'Profile link'}
-          </p>
-          <a
-            href={getProfileLink(telegramUser)}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-primary font-medium hover:underline break-all"
-          >
-            {getProfileLink(telegramUser)}
-          </a>
-        </div>
+        <a
+          href={getProfileLink(telegramUser)}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center justify-center gap-2 bg-[#0088cc] hover:bg-[#0077b5] text-white font-medium py-3 px-4 rounded-xl transition-colors"
+        >
+          <ExternalLink className="w-4 h-4" />
+          {language === 'ru' ? 'Открыть профиль' : 'Open profile'}
+        </a>
       </div>
     );
   }
@@ -124,25 +132,114 @@ export const TelegramLoginButton: React.FC<TelegramLoginButtonProps> = ({
       <div className="flex items-center gap-2 mb-2">
         <MessageCircle className="w-4 h-4 text-primary" />
         <span className="text-sm font-medium text-foreground">
-          {language === 'ru' ? 'Авторизуйтесь через Telegram' : 'Log in with Telegram'}
+          {language === 'ru' ? 'Авторизация через Telegram' : 'Telegram Authorization'}
         </span>
         <span className="text-destructive">*</span>
       </div>
-      
-      <div ref={containerRef} className="flex justify-center py-2" />
-      
+
+      {step === 'initial' && (
+        <>
+          <button
+            type="button"
+            onClick={openTelegramBot}
+            className="w-full flex items-center justify-center gap-3 bg-[#0088cc] hover:bg-[#0077b5] text-white font-medium py-3 px-4 rounded-xl transition-colors"
+          >
+            <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/>
+            </svg>
+            {language === 'ru' ? 'Открыть Telegram' : 'Open Telegram'}
+          </button>
+          <p className="text-xs text-muted-foreground text-center">
+            {language === 'ru'
+              ? 'Нажмите кнопку, чтобы открыть Telegram и авторизоваться через бота'
+              : 'Click the button to open Telegram and authorize via the bot'}
+          </p>
+        </>
+      )}
+
+      {step === 'confirming' && (
+        <div className="space-y-3">
+          <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
+            <p className="text-sm text-blue-800 dark:text-blue-200 mb-3">
+              {language === 'ru'
+                ? 'Telegram должен был открыться. Нажмите "Start" или "Начать" в боте, затем вернитесь сюда.'
+                : 'Telegram should have opened. Click "Start" in the bot, then return here.'}
+            </p>
+          </div>
+          
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setStep('initial')}
+              className="flex-1 py-2 px-4 border border-border rounded-xl text-foreground hover:bg-muted transition-colors"
+            >
+              {language === 'ru' ? 'Назад' : 'Back'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setStep('entering')}
+              className="flex-1 py-2 px-4 bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 transition-colors"
+            >
+              {language === 'ru' ? 'Готово' : 'Done'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {step === 'entering' && (
+        <div className="space-y-3">
+          <div className="bg-accent/50 rounded-xl p-4">
+            <p className="text-sm text-foreground mb-3">
+              {language === 'ru'
+                ? 'Введите ваш Telegram username (без @):'
+                : 'Enter your Telegram username (without @):'}
+            </p>
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">@</span>
+                <input
+                  type="text"
+                  value={username}
+                  onChange={(e) => {
+                    setUsername(e.target.value);
+                    setInputError('');
+                  }}
+                  placeholder="username"
+                  className="w-full pl-8 pr-4 py-2 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={handleSubmitUsername}
+                className="py-2 px-4 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+              >
+                {language === 'ru' ? 'Подтвердить' : 'Confirm'}
+              </button>
+            </div>
+            {inputError && (
+              <p className="text-sm text-destructive mt-2 flex items-center gap-1">
+                <AlertCircleIcon />
+                {inputError}
+              </p>
+            )}
+          </div>
+          
+          <button
+            type="button"
+            onClick={() => setStep('confirming')}
+            className="w-full py-2 px-4 border border-border rounded-xl text-foreground hover:bg-muted transition-colors"
+          >
+            {language === 'ru' ? 'Назад' : 'Back'}
+          </button>
+        </div>
+      )}
+
       {error && (
         <p className="text-sm text-destructive flex items-center gap-1">
           <AlertCircleIcon />
           {error}
         </p>
       )}
-      
-      <p className="text-xs text-muted-foreground">
-        {language === 'ru'
-          ? 'Нажмите кнопку выше, чтобы войти через Telegram. Это позволит нам связаться с вами.'
-          : 'Click the button above to log in via Telegram. This will allow us to contact you.'}
-      </p>
     </div>
   );
 };
