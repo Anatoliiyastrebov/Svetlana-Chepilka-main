@@ -11,7 +11,7 @@ export type TelegramUser = TelegramUserData;
 
 // Environment variables
 const BOT_USERNAME = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || 'SvetlanaChepilkaBot';
-const MINI_APP_NAME = process.env.NEXT_PUBLIC_TELEGRAM_MINI_APP_NAME || 'Authorization';
+const MINI_APP_NAME = process.env.NEXT_PUBLIC_TELEGRAM_MINI_APP_NAME || 'SvetlanaAuth';
 
 // Safe Base64 encoding for Unicode strings
 const safeEncode = (str: string): string => {
