@@ -50,10 +50,30 @@ export default function AnketaPage() {
 
   const [formData, setFormData] = useState<FormData>({});
   const [additionalData, setAdditionalData] = useState<FormAdditionalData>({});
-  const [contactData, setContactData] = useState<ContactData>({
-    telegram: '',
-    instagram: '',
-    phone: '',
+  
+  // Initialize contactData, checking for saved telegramUser
+  const [contactData, setContactData] = useState<ContactData>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const savedUser = localStorage.getItem('telegram_user');
+        if (savedUser) {
+          const telegramUser = JSON.parse(savedUser);
+          return {
+            telegram: '',
+            instagram: '',
+            phone: '',
+            telegramUser,
+          };
+        }
+      } catch {
+        // Ignore errors
+      }
+    }
+    return {
+      telegram: '',
+      instagram: '',
+      phone: '',
+    };
   });
   const [uploadedFiles, setUploadedFiles] = useState<Record<string, File[]>>({});
   const [dsgvoAccepted, setDsgvoAccepted] = useState(false);
@@ -72,7 +92,12 @@ export default function AnketaPage() {
     if (saved) {
       setFormData(saved.formData);
       setAdditionalData(saved.additionalData);
-      setContactData(saved.contactData);
+      // Merge contactData to preserve telegramUser from TelegramLoginButton
+      setContactData((prev) => ({
+        ...saved.contactData,
+        // Keep telegramUser from prev if it exists (from TelegramLoginButton's localStorage)
+        telegramUser: prev.telegramUser || saved.contactData.telegramUser,
+      }));
     }
   }, [type, language]);
 
