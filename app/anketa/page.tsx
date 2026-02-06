@@ -51,30 +51,26 @@ export default function AnketaPage() {
   const [formData, setFormData] = useState<FormData>({});
   const [additionalData, setAdditionalData] = useState<FormAdditionalData>({});
   
-  // Initialize contactData, checking for saved telegramUser
-  const [contactData, setContactData] = useState<ContactData>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const savedUser = localStorage.getItem('telegram_user');
-        if (savedUser) {
-          const telegramUser = JSON.parse(savedUser);
-          return {
-            telegram: '',
-            instagram: '',
-            phone: '',
-            telegramUser,
-          };
-        }
-      } catch {
-        // Ignore errors
-      }
-    }
-    return {
-      telegram: '',
-      instagram: '',
-      phone: '',
-    };
+  const [contactData, setContactData] = useState<ContactData>({
+    telegram: '',
+    instagram: '',
+    phone: '',
   });
+  
+  // Load telegramUser from localStorage after hydration
+  useEffect(() => {
+    try {
+      const savedUser = localStorage.getItem('telegram_user');
+      if (savedUser) {
+        const telegramUser = JSON.parse(savedUser);
+        if (telegramUser && telegramUser.id) {
+          setContactData((prev) => ({ ...prev, telegramUser }));
+        }
+      }
+    } catch {
+      // Ignore errors
+    }
+  }, []);
   const [uploadedFiles, setUploadedFiles] = useState<Record<string, File[]>>({});
   const [dsgvoAccepted, setDsgvoAccepted] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({});
