@@ -1,3 +1,5 @@
+'use client';
+
 import React from 'react';
 import { Question } from '@/lib/questionnaire-data';
 import { useLanguage } from '@/contexts/LanguageContext';

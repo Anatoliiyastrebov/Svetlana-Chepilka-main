@@ -1,3 +1,5 @@
+'use client';
+
 import React from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { MessageCircle, Instagram, Phone, ExternalLink } from 'lucide-react';
@@ -22,7 +24,7 @@ interface ContactSectionProps {
 }
 
 // Get bot username from environment variable
-const BOT_USERNAME = import.meta.env.VITE_TELEGRAM_BOT_USERNAME || 'your_bot_username';
+const BOT_USERNAME = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || 'your_bot_username';
 
 export const ContactSection: React.FC<ContactSectionProps> = ({
   contactData,

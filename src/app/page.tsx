@@ -1,11 +1,12 @@
-import React from 'react';
+'use client';
+
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
 import { CategoryCard } from '@/components/CategoryCard';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Heart, Sparkles } from 'lucide-react';
 
-const Index: React.FC = () => {
+export default function HomePage() {
   const { t } = useLanguage();
 
   return (
@@ -68,6 +69,4 @@ const Index: React.FC = () => {
       <Footer />
     </div>
   );
-};
-
-export default Index;
+}

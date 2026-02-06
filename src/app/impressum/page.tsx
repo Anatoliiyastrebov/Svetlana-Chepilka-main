@@ -1,8 +1,9 @@
-import React from 'react';
+'use client';
+
+import Link from 'next/link';
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
 import { Home } from 'lucide-react';
-import { Link } from 'react-router-dom';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 const impressumContent = {
@@ -34,7 +35,7 @@ const impressumContent = {
   },
 };
 
-const Impressum: React.FC = () => {
+export default function ImpressumPage() {
   const { language } = useLanguage();
   const currentLanguage = language || 'ru';
   const content = impressumContent[currentLanguage] || impressumContent.ru;
@@ -46,7 +47,7 @@ const Impressum: React.FC = () => {
       <main className="container mx-auto px-4 py-8 max-w-3xl">
         <div className="mb-6">
           <Link
-            to="/"
+            href="/"
             className="inline-flex items-center gap-2 text-primary hover:underline"
           >
             <Home className="w-4 h-4" />
@@ -103,7 +104,4 @@ const Impressum: React.FC = () => {
       <Footer />
     </div>
   );
-};
-
-export default Impressum;
-
+}

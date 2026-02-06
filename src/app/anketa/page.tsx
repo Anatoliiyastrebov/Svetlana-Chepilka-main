@@ -1,5 +1,7 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+'use client';
+
+import { useState, useEffect, useMemo } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
 import { QuestionField } from '@/components/form/QuestionField';
@@ -30,9 +32,9 @@ import { Eye, Send, Trash2, Loader2, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
-const Anketa: React.FC = () => {
-  const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
+export default function AnketaPage() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const { language, t } = useLanguage();
 
   const type = (searchParams.get('type') as QuestionnaireType) || 'infant';
@@ -41,8 +43,8 @@ const Anketa: React.FC = () => {
 
   // Check if environment variables are configured
   const isEnvConfigured = useMemo(() => {
-    const BOT_TOKEN = import.meta.env.VITE_TELEGRAM_BOT_TOKEN;
-    const CHAT_ID = import.meta.env.VITE_TELEGRAM_CHAT_ID;
+    const BOT_TOKEN = process.env.NEXT_PUBLIC_TELEGRAM_BOT_TOKEN;
+    const CHAT_ID = process.env.NEXT_PUBLIC_TELEGRAM_CHAT_ID;
     return !!(BOT_TOKEN && CHAT_ID && BOT_TOKEN.trim() !== '' && CHAT_ID.trim() !== '');
   }, []);
 
@@ -285,7 +287,7 @@ const Anketa: React.FC = () => {
     }
 
     if (!dsgvoAccepted) {
-      toast.error(language === 'ru' ? 'Необходимо принять условия DSGVO' : 'You must accept Privacy Policy terms');
+      toast.error(language === 'ru' ? 'Необходимо принять условия' : 'You must accept the terms');
       return;
     }
 
@@ -297,12 +299,12 @@ const Anketa: React.FC = () => {
       const result = await sendToTelegram(markdown, filesToSend, language);
       
       if (result.success) {
-        // Save submitted data with message_id for CCPA compliance
+        // Save submitted data with message_id
         const name = `${formData.name || ''} ${formData.last_name || ''}`.trim() || 'Anonymous';
-        const contactInfo = contactData.telegram || contactData.instagram || contactData.phone || 'No contact';
+        const contactInfo = contactData.telegramUser 
+          ? `@${contactData.telegramUser.username || contactData.telegramUser.id}`
+          : contactData.instagram || contactData.phone || 'No contact';
         
-        // Save data even if messageId is not available (for tracking purposes)
-        // Use timestamp as fallback identifier if messageId is missing
         const identifier = result.messageId || Date.now();
         
         saveSubmittedData({
@@ -313,12 +315,9 @@ const Anketa: React.FC = () => {
           type,
         });
         
-        console.log('Saved submitted data:', { messageId: identifier, name, contactInfo, type });
-        
         clearFormData(type, language);
-        navigate(`/success?lang=${language}`);
+        router.push(`/success?lang=${language}`);
       } else {
-        // Show detailed error message
         const errorMsg = result.error || t('submitError');
         console.error('Failed to send form:', errorMsg);
         toast.error(errorMsg, {
@@ -355,8 +354,8 @@ const Anketa: React.FC = () => {
             </AlertTitle>
             <AlertDescription>
               {language === 'ru' 
-                ? 'Telegram Bot Token или Chat ID не настроены. Пожалуйста, настройте переменные окружения VITE_TELEGRAM_BOT_TOKEN и VITE_TELEGRAM_CHAT_ID в Vercel и пересоберите сайт.'
-                : 'Telegram Bot Token or Chat ID not configured. Please set VITE_TELEGRAM_BOT_TOKEN and VITE_TELEGRAM_CHAT_ID environment variables in Vercel and rebuild the site.'}
+                ? 'Telegram Bot Token или Chat ID не настроены. Пожалуйста, настройте переменные окружения NEXT_PUBLIC_TELEGRAM_BOT_TOKEN и NEXT_PUBLIC_TELEGRAM_CHAT_ID.'
+                : 'Telegram Bot Token or Chat ID not configured. Please set NEXT_PUBLIC_TELEGRAM_BOT_TOKEN and NEXT_PUBLIC_TELEGRAM_CHAT_ID environment variables.'}
             </AlertDescription>
           </Alert>
         )}
@@ -375,7 +374,6 @@ const Anketa: React.FC = () => {
 
               <div className="space-y-6">
                 {(() => {
-                  // Группируем компактные поля (text/number) в начале секции personal_info
                   const compactFieldIds = ['name', 'last_name', 'age', 'height', 'weight'];
                   const compactQuestions = section.questions.filter(
                     (q) => compactFieldIds.includes(q.id) && (q.type === 'text' || q.type === 'number')
@@ -409,15 +407,12 @@ const Anketa: React.FC = () => {
                         </div>
                       )}
                       {otherQuestions.map((question) => {
-                        // Поле загрузки файлов показываем только если выбран «Да» на вопрос про анализы/УЗИ
                         if (question.id === 'attach_files' && formData['has_tests_or_ultrasound'] !== 'yes') {
                           return null;
                         }
-                        // Поле изменения веса показываем только если выбран «Нет» на вопрос про удовлетворённость весом
                         if (question.id === 'weight_change' && formData['weight_satisfaction'] !== 'no') {
                           return null;
                         }
-                        // Поле о лекарствах от давления показываем только если выбрано «Высокое»
                         if (question.id === 'pressure_medication' && formData['pressure'] !== 'high') {
                           return null;
                         }
@@ -451,7 +446,7 @@ const Anketa: React.FC = () => {
             </div>
           ))}
 
-          {/* Contact Section — data-error для скролла при валидации */}
+          {/* Contact Section */}
           <div
             data-error={
               !!(
@@ -463,31 +458,30 @@ const Anketa: React.FC = () => {
             }
           >
             <ContactSection
-            contactData={contactData}
-            telegramUser={contactData.telegramUser}
-            errors={{
-              telegram: errors['contact_telegram'],
-              instagram: errors['contact_instagram'],
-              phone: errors['contact_phone'],
-              contact_method: errors['contact_method'],
-            }}
-            onTelegramAuth={(user) => {
-              setContactData((prev) => ({ ...prev, telegramUser: user }));
-              // Clear contact_method error when user logs in
-              setErrors((prev) => {
-                const newErrors = { ...prev };
-                delete newErrors['contact_method'];
-                delete newErrors['contact_telegram'];
-                return newErrors;
-              });
-            }}
-            onInstagramChange={(value) => {
-              setContactData((prev) => ({ ...prev, instagram: value }));
-            }}
-            onPhoneChange={(value) => {
-              setContactData((prev) => ({ ...prev, phone: value }));
-            }}
-          />
+              contactData={contactData}
+              telegramUser={contactData.telegramUser}
+              errors={{
+                telegram: errors['contact_telegram'],
+                instagram: errors['contact_instagram'],
+                phone: errors['contact_phone'],
+                contact_method: errors['contact_method'],
+              }}
+              onTelegramAuth={(user) => {
+                setContactData((prev) => ({ ...prev, telegramUser: user }));
+                setErrors((prev) => {
+                  const newErrors = { ...prev };
+                  delete newErrors['contact_method'];
+                  delete newErrors['contact_telegram'];
+                  return newErrors;
+                });
+              }}
+              onInstagramChange={(value) => {
+                setContactData((prev) => ({ ...prev, instagram: value }));
+              }}
+              onPhoneChange={(value) => {
+                setContactData((prev) => ({ ...prev, phone: value }));
+              }}
+            />
           </div>
 
           {/* DSGVO Checkbox */}
@@ -543,6 +537,4 @@ const Anketa: React.FC = () => {
       <Footer />
     </div>
   );
-};
-
-export default Anketa;
+}

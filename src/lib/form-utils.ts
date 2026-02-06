@@ -188,8 +188,8 @@ export const deleteSubmittedData = (messageId: number) => {
 
 // Delete message from Telegram
 export const deleteTelegramMessage = async (messageId: number): Promise<{ success: boolean; error?: string }> => {
-  const BOT_TOKEN = import.meta.env.VITE_TELEGRAM_BOT_TOKEN;
-  const CHAT_ID = import.meta.env.VITE_TELEGRAM_CHAT_ID;
+  const BOT_TOKEN = process.env.NEXT_PUBLIC_TELEGRAM_BOT_TOKEN;
+  const CHAT_ID = process.env.NEXT_PUBLIC_TELEGRAM_CHAT_ID;
 
   if (!BOT_TOKEN || !CHAT_ID) {
     return { success: false, error: 'Telegram Bot Token or Chat ID not configured' };
@@ -665,9 +665,9 @@ export const sendToTelegram = async (
   files: File[] = [],
   lang: Language = 'ru'
 ): Promise<{ success: boolean; error?: string; messageId?: number }> => {
-  // Try to get from environment variables first (for Vite: VITE_ prefix)
-  const BOT_TOKEN = import.meta.env.VITE_TELEGRAM_BOT_TOKEN;
-  const CHAT_ID = import.meta.env.VITE_TELEGRAM_CHAT_ID;
+  // Get from environment variables
+  const BOT_TOKEN = process.env.NEXT_PUBLIC_TELEGRAM_BOT_TOKEN;
+  const CHAT_ID = process.env.NEXT_PUBLIC_TELEGRAM_CHAT_ID;
 
   // Debug: Log all environment variables (without exposing sensitive data)
   const allViteEnvKeys = Object.keys(import.meta.env).filter(key => key.startsWith('VITE_'));

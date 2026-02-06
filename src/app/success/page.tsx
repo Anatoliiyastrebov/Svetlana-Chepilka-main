@@ -1,11 +1,12 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
+'use client';
+
+import Link from 'next/link';
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { CheckCircle, Home, Send } from 'lucide-react';
 
-const Success: React.FC = () => {
+export default function SuccessPage() {
   const { language, t } = useLanguage();
 
   return (
@@ -28,7 +29,7 @@ const Success: React.FC = () => {
 
           <div className="flex flex-col sm:flex-row gap-3">
             <Link
-              to={`/?lang=${language}`}
+              href={`/?lang=${language}`}
               className="btn-secondary flex items-center justify-center gap-2 flex-1"
             >
               <Home className="w-5 h-5" />
@@ -36,7 +37,7 @@ const Success: React.FC = () => {
             </Link>
 
             <Link
-              to={`/?lang=${language}`}
+              href={`/?lang=${language}`}
               className="btn-primary flex items-center justify-center gap-2 flex-1"
             >
               <Send className="w-5 h-5" />
@@ -53,6 +54,4 @@ const Success: React.FC = () => {
       <Footer />
     </div>
   );
-};
-
-export default Success;
+}

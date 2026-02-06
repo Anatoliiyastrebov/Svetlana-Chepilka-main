@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from 'react';
+'use client';
+
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
 import { Home, Trash2, Loader2 } from 'lucide-react';
-import { Link } from 'react-router-dom';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { 
   getSubmittedDataList, 
@@ -13,9 +15,9 @@ import {
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 
-const DataRequest: React.FC = () => {
+export default function DataRequestPage() {
   const { language } = useLanguage();
-  const [submittedData, setSubmittedData] = useState<SubmittedData[]>(getSubmittedDataList());
+  const [submittedData, setSubmittedData] = useState<SubmittedData[]>([]);
   const [isDeleting, setIsDeleting] = useState<number | null>(null);
 
   // Refresh submitted data list on mount
@@ -27,7 +29,7 @@ const DataRequest: React.FC = () => {
     ru: {
       title: 'Мои отправленные анкеты',
       backToHome: 'Вернуться на главную',
-      description: 'Здесь вы можете просмотреть все отправленные вами анкеты и удалить свои данные в соответствии с CCPA.',
+      description: 'Здесь вы можете просмотреть все отправленные вами анкеты и удалить свои данные.',
       submittedData: 'Отправленные анкеты',
       deleteButton: 'Удалить',
       deleting: 'Удаление...',
@@ -39,7 +41,7 @@ const DataRequest: React.FC = () => {
     en: {
       title: 'My Submitted Questionnaires',
       backToHome: 'Back to home',
-      description: 'Here you can view all questionnaires you have submitted and delete your data in accordance with CCPA.',
+      description: 'Here you can view all questionnaires you have submitted and delete your data.',
       submittedData: 'Submitted Questionnaires',
       deleteButton: 'Delete',
       deleting: 'Deleting...',
@@ -63,13 +65,11 @@ const DataRequest: React.FC = () => {
         setSubmittedData(getSubmittedDataList());
         toast.success(content[language].deleteSuccess);
       } else {
-        // Even if Telegram deletion fails, remove from local list
         deleteSubmittedData(messageId);
         setSubmittedData(getSubmittedDataList());
         toast.warning(result.error || content[language].deleteError + '. Data removed from local list.');
       }
     } catch (error: any) {
-      // Even if error occurs, remove from local list
       deleteSubmittedData(messageId);
       setSubmittedData(getSubmittedDataList());
       toast.error(error.message || content[language].deleteError);
@@ -85,7 +85,7 @@ const DataRequest: React.FC = () => {
       <main className="container mx-auto px-4 py-8 max-w-4xl">
         <div className="mb-6">
           <Link
-            to="/"
+            href="/"
             className="inline-flex items-center gap-2 text-primary hover:underline"
           >
             <Home className="w-4 h-4" />
@@ -144,7 +144,4 @@ const DataRequest: React.FC = () => {
       <Footer />
     </div>
   );
-};
-
-export default DataRequest;
-
+}

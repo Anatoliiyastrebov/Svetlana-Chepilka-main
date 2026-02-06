@@ -1,5 +1,7 @@
+'use client';
+
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { useSearchParams, useNavigate, useLocation } from 'react-router-dom';
+import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { Language, translations, getTranslation } from '@/lib/translations';
 
 interface LanguageContextType {
@@ -11,8 +13,9 @@ interface LanguageContextType {
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
 export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const location = useLocation();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
   
   const getInitialLanguage = (): Language => {
     const urlLang = searchParams.get('lang');
@@ -26,9 +29,9 @@ export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }
 
   const setLanguage = (lang: Language) => {
     setLanguageState(lang);
-    const newParams = new URLSearchParams(searchParams);
+    const newParams = new URLSearchParams(searchParams.toString());
     newParams.set('lang', lang);
-    setSearchParams(newParams, { replace: true });
+    router.replace(`${pathname}?${newParams.toString()}`);
   };
 
   useEffect(() => {
@@ -36,7 +39,6 @@ export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }
     if (urlLang && ['ru', 'en'].includes(urlLang) && urlLang !== language) {
       setLanguageState(urlLang as Language);
     } else if (!urlLang) {
-      // Ensure language is set even if not in URL
       setLanguageState('ru');
     }
   }, [searchParams, language]);
