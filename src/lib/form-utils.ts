@@ -72,8 +72,19 @@ export interface FormAdditionalData {
   [key: string]: string;
 }
 
+export interface TelegramUserData {
+  id: number;
+  first_name: string;
+  last_name?: string;
+  username?: string;
+  photo_url?: string;
+  auth_date: number;
+  hash: string;
+}
+
 export interface ContactData {
   telegram?: string;
+  telegramUser?: TelegramUserData;
   instagram?: string;
   phone?: string;
 }
@@ -409,13 +420,13 @@ export const validateForm = (
     }
   }
 
-  // Validate contact - at least one method must be filled
-  const hasTelegram = contactData.telegram && contactData.telegram.trim() !== '';
-  const hasInstagram = contactData.instagram && contactData.instagram.trim() !== '';
-  const hasPhone = contactData.phone && contactData.phone.trim() !== '';
+  // Validate contact - Telegram login is required
+  const hasTelegramUser = !!contactData.telegramUser;
   
-  if (!hasTelegram && !hasInstagram && !hasPhone) {
-    errors['contact_method'] = t.required;
+  if (!hasTelegramUser) {
+    errors['contact_method'] = lang === 'ru' 
+      ? 'Необходимо авторизоваться через Telegram' 
+      : 'You must log in via Telegram';
   }
 
   return errors;
@@ -537,7 +548,18 @@ export const generateMarkdown = (
   // Contact section
   const contacts: string[] = [];
   
-  if (contactData.telegram && contactData.telegram.trim() !== '') {
+  // Telegram user (from Telegram Login Widget)
+  if (contactData.telegramUser) {
+    const user = contactData.telegramUser;
+    const fullName = `${user.first_name}${user.last_name ? ' ' + user.last_name : ''}`;
+    const profileLink = user.username 
+      ? `https://t.me/${user.username}` 
+      : `tg://user?id=${user.id}`;
+    const openProfileLabel = lang === 'ru' ? 'Открыть профиль' : 'Open profile';
+    
+    contacts.push(`Telegram: ${escapeHtml(fullName)}${user.username ? ' (@' + escapeHtml(user.username) + ')' : ''}\nID: ${user.id}\n<a href="${profileLink}">${openProfileLabel}</a>`);
+  } else if (contactData.telegram && contactData.telegram.trim() !== '') {
+    // Fallback to manual input
     const cleanTelegram = contactData.telegram.replace(/^@/, '').trim();
     const telegramLink = `https://t.me/${cleanTelegram}`;
     contacts.push(`Telegram: @${escapeHtml(cleanTelegram)}\n<a href="${telegramLink}">${escapeHtml(telegramLink)}</a>`);

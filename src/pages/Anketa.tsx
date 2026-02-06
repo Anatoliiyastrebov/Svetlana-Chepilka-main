@@ -464,47 +464,28 @@ const Anketa: React.FC = () => {
           >
             <ContactSection
             contactData={contactData}
+            telegramUser={contactData.telegramUser}
             errors={{
               telegram: errors['contact_telegram'],
               instagram: errors['contact_instagram'],
               phone: errors['contact_phone'],
               contact_method: errors['contact_method'],
             }}
-            onTelegramChange={(value) => {
-              setContactData((prev) => ({ ...prev, telegram: value }));
-              // Clear contact_method error if any field is filled
-              if (value.trim() !== '' || contactData.instagram?.trim() || contactData.phone?.trim()) {
-                setErrors((prev) => {
-                  const newErrors = { ...prev };
-                  delete newErrors['contact_method'];
-                  delete newErrors['contact_telegram'];
-                  return newErrors;
-                });
-              }
+            onTelegramAuth={(user) => {
+              setContactData((prev) => ({ ...prev, telegramUser: user }));
+              // Clear contact_method error when user logs in
+              setErrors((prev) => {
+                const newErrors = { ...prev };
+                delete newErrors['contact_method'];
+                delete newErrors['contact_telegram'];
+                return newErrors;
+              });
             }}
             onInstagramChange={(value) => {
               setContactData((prev) => ({ ...prev, instagram: value }));
-              // Clear contact_method error if any field is filled
-              if (value.trim() !== '' || contactData.telegram?.trim() || contactData.phone?.trim()) {
-                setErrors((prev) => {
-                  const newErrors = { ...prev };
-                  delete newErrors['contact_method'];
-                  delete newErrors['contact_instagram'];
-                  return newErrors;
-                });
-              }
             }}
             onPhoneChange={(value) => {
               setContactData((prev) => ({ ...prev, phone: value }));
-              // Clear contact_method error if any field is filled
-              if (value.trim() !== '' || contactData.telegram?.trim() || contactData.instagram?.trim()) {
-                setErrors((prev) => {
-                  const newErrors = { ...prev };
-                  delete newErrors['contact_method'];
-                  delete newErrors['contact_phone'];
-                  return newErrors;
-                });
-              }
             }}
           />
           </div>

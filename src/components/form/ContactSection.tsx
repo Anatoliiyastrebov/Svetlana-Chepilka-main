@@ -1,6 +1,7 @@
 import React from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { MessageCircle, Instagram, Phone, ExternalLink } from 'lucide-react';
+import { TelegramLoginButton, TelegramUser } from './TelegramLoginButton';
 
 interface ContactSectionProps {
   contactData: {
@@ -8,36 +9,38 @@ interface ContactSectionProps {
     instagram?: string;
     phone?: string;
   };
+  telegramUser?: TelegramUser | null;
   errors?: {
     telegram?: string;
     instagram?: string;
     phone?: string;
     contact_method?: string;
   };
-  onTelegramChange: (value: string) => void;
+  onTelegramAuth: (user: TelegramUser) => void;
   onInstagramChange: (value: string) => void;
   onPhoneChange: (value: string) => void;
 }
 
+// Get bot username from environment variable
+const BOT_USERNAME = import.meta.env.VITE_TELEGRAM_BOT_USERNAME || 'your_bot_username';
+
 export const ContactSection: React.FC<ContactSectionProps> = ({
   contactData,
+  telegramUser,
   errors = {},
-  onTelegramChange,
+  onTelegramAuth,
   onInstagramChange,
   onPhoneChange,
 }) => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
-  const cleanTelegram = (contactData.telegram || '').replace(/^@/, '').trim();
   const cleanInstagram = (contactData.instagram || '').replace(/^@/, '').trim();
   const cleanPhone = (contactData.phone || '').trim();
 
-  const telegramLink = cleanTelegram ? `https://t.me/${cleanTelegram}` : '';
   const instagramLink = cleanInstagram ? `https://instagram.com/${cleanInstagram}` : '';
-  const phoneLink = cleanPhone ? `tel:${cleanPhone}` : '';
 
   return (
-    <div className="card-wellness space-y-4">
+    <div className="card-wellness space-y-6">
       <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
         <MessageCircle className="w-5 h-5 text-primary" />
         {t('contactMethod')}
@@ -50,39 +53,25 @@ export const ContactSection: React.FC<ContactSectionProps> = ({
         </p>
       )}
 
-      {/* Telegram */}
-      <div>
-        <label className="text-sm font-medium text-foreground mb-1 block flex items-center gap-2">
-          <MessageCircle className="w-4 h-4 text-primary" />
-          {t('telegram')}
-        </label>
-        <input
-          type="text"
-          className={`input-field ${errors.telegram ? 'input-error' : ''}`}
-          value={contactData.telegram || ''}
-          onChange={(e) => onTelegramChange(e.target.value)}
-          placeholder={t('usernameHint')}
+      {/* Telegram Login */}
+      <div className="bg-accent/30 rounded-xl p-4 border border-border">
+        <TelegramLoginButton
+          botUsername={BOT_USERNAME}
+          onAuth={onTelegramAuth}
+          telegramUser={telegramUser}
+          error={errors.telegram}
         />
-        {errors.telegram && (
-          <p className="error-message mt-1">
-            <AlertCircleIcon />
-            {errors.telegram}
-          </p>
-        )}
-        {cleanTelegram && (
-          <div className="bg-accent/50 rounded-xl p-3 mt-2">
-            <p className="text-sm text-muted-foreground mb-1">{t('contactLink')}</p>
-            <a
-              href={telegramLink}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-primary font-medium flex items-center gap-1 hover:underline break-all"
-            >
-              {telegramLink}
-              <ExternalLink className="w-4 h-4 flex-shrink-0" />
-            </a>
-          </div>
-        )}
+      </div>
+
+      <div className="relative">
+        <div className="absolute inset-0 flex items-center">
+          <div className="w-full border-t border-border"></div>
+        </div>
+        <div className="relative flex justify-center text-xs uppercase">
+          <span className="bg-card px-2 text-muted-foreground">
+            {language === 'ru' ? 'или дополнительно' : 'or additionally'}
+          </span>
+        </div>
       </div>
 
       {/* Instagram */}
