@@ -1,72 +1,123 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { MessageCircle, CheckCircle, ExternalLink } from 'lucide-react';
+import { MessageCircle, CheckCircle, ExternalLink, Loader2, LogIn } from 'lucide-react';
 import { TelegramUserData } from '@/lib/form-utils';
 
 // Re-export for convenience
 export type TelegramUser = TelegramUserData;
 
+// Environment variables
+const BOT_USERNAME = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || 'SvetlanaChepilkaBot';
+const MINI_APP_NAME = process.env.NEXT_PUBLIC_TELEGRAM_MINI_APP_NAME || 'Authorization';
+
 interface TelegramLoginButtonProps {
-  botUsername: string;
+  botUsername?: string;
   onAuth: (user: TelegramUser) => void;
   telegramUser?: TelegramUser | null;
   error?: string;
 }
 
 export const TelegramLoginButton: React.FC<TelegramLoginButtonProps> = ({
-  botUsername,
   onAuth,
   telegramUser,
   error,
 }) => {
   const { language } = useLanguage();
-  const [username, setUsername] = useState('');
-  const [inputError, setInputError] = useState('');
-  const [telegramOpened, setTelegramOpened] = useState(false);
+  const searchParams = useSearchParams();
+  const [isLoading, setIsLoading] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
 
-  // Open Telegram app with bot
-  const openTelegramBot = () => {
-    const webLink = `https://t.me/${botUsername}?start=auth`;
-    window.open(webLink, '_blank');
-    setTelegramOpened(true);
-  };
+  // Handle auth_token from URL (after Telegram redirect)
+  const handleAuthToken = useCallback(async (authToken: string) => {
+    if (telegramUser) return; // Already authorized
+    
+    setIsLoading(true);
+    try {
+      const response = await fetch(`/api/auth/get-user-data?token=${authToken}`);
+      const result = await response.json();
 
-  // Handle username confirmation
-  const handleConfirm = () => {
-    let cleanUsername = username.trim();
-    
-    // Remove @ if present
-    if (cleanUsername.startsWith('@')) {
-      cleanUsername = cleanUsername.substring(1);
+      if (result.success && result.user) {
+        // Convert to TelegramUser format
+        const userData: TelegramUser = {
+          id: result.user.id,
+          first_name: result.user.first_name,
+          last_name: result.user.last_name,
+          username: result.user.username,
+          auth_date: Math.floor(Date.now() / 1000),
+          hash: '',
+        };
+        
+        onAuth(userData);
+        
+        // Save to localStorage for persistence
+        localStorage.setItem('telegram_user', JSON.stringify(userData));
+        
+        // Clean up URL
+        const url = new URL(window.location.href);
+        url.searchParams.delete('auth_token');
+        window.history.replaceState({}, '', url.toString());
+      }
+    } catch (error) {
+      console.error('Error fetching user data:', error);
+    } finally {
+      setIsLoading(false);
+      setAuthChecked(true);
     }
-    
-    if (!cleanUsername) {
-      setInputError(language === 'ru' 
-        ? 'Введите ваш Telegram username' 
-        : 'Enter your Telegram username');
-      return;
+  }, [telegramUser, onAuth]);
+
+  // Check for auth_token in URL on mount
+  useEffect(() => {
+    const authToken = searchParams.get('auth_token');
+    if (authToken && !telegramUser && !authChecked) {
+      handleAuthToken(authToken);
+    } else {
+      setAuthChecked(true);
     }
-    
-    if (cleanUsername.length < 4) {
-      setInputError(language === 'ru' 
-        ? 'Username слишком короткий' 
-        : 'Username is too short');
-      return;
+  }, [searchParams, telegramUser, authChecked, handleAuthToken]);
+
+  // Check localStorage for saved user on mount
+  useEffect(() => {
+    if (!telegramUser && authChecked) {
+      const savedUser = localStorage.getItem('telegram_user');
+      if (savedUser) {
+        try {
+          const user = JSON.parse(savedUser);
+          onAuth(user);
+        } catch (e) {
+          localStorage.removeItem('telegram_user');
+        }
+      }
     }
-    
-    // Create user data
-    const userData: TelegramUser = {
-      id: 0,
-      first_name: cleanUsername,
-      username: cleanUsername,
-      auth_date: Math.floor(Date.now() / 1000),
-      hash: '',
-    };
-    
-    onAuth(userData);
-    setInputError('');
+  }, [telegramUser, authChecked, onAuth]);
+
+  // Handle Telegram login button click
+  const handleTelegramLogin = async () => {
+    setIsLoading(true);
+    try {
+      // Create session
+      const response = await fetch('/api/auth/create-session', {
+        method: 'POST',
+      });
+      const result = await response.json();
+
+      if (result.success && result.sessionId) {
+        // Save current URL to return after auth
+        localStorage.setItem('telegram_auth_return_url', window.location.href);
+        
+        // Redirect to Telegram Mini App with session ID
+        const telegramUrl = `https://t.me/${BOT_USERNAME}/${MINI_APP_NAME}?startapp=${result.sessionId}`;
+        window.location.href = telegramUrl;
+      } else {
+        console.error('Failed to create session');
+        setIsLoading(false);
+      }
+    } catch (error) {
+      console.error('Error during login:', error);
+      setIsLoading(false);
+    }
   };
 
   // Get profile link
@@ -74,7 +125,18 @@ export const TelegramLoginButton: React.FC<TelegramLoginButtonProps> = ({
     if (telegramUser?.username) {
       return `https://t.me/${telegramUser.username}`;
     }
+    if (telegramUser?.id) {
+      return `tg://user?id=${telegramUser.id}`;
+    }
     return '';
+  };
+
+  // Get display name
+  const getDisplayName = (): string => {
+    if (!telegramUser) return '';
+    if (telegramUser.username) return `@${telegramUser.username}`;
+    if (telegramUser.last_name) return `${telegramUser.first_name} ${telegramUser.last_name}`;
+    return telegramUser.first_name;
   };
 
   // If already authorized
@@ -86,6 +148,7 @@ export const TelegramLoginButton: React.FC<TelegramLoginButtonProps> = ({
         <div className="flex items-center gap-2 mb-2">
           <MessageCircle className="w-4 h-4 text-primary" />
           <span className="text-sm font-medium text-foreground">Telegram</span>
+          <span className="text-destructive">*</span>
         </div>
         
         <div className="bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-xl p-4">
@@ -96,7 +159,7 @@ export const TelegramLoginButton: React.FC<TelegramLoginButtonProps> = ({
                 {language === 'ru' ? 'Авторизован через Telegram' : 'Authorized via Telegram'}
               </p>
               <p className="text-sm text-green-600 dark:text-green-400">
-                @{telegramUser.username}
+                {getDisplayName()}
               </p>
             </div>
           </div>
@@ -125,65 +188,32 @@ export const TelegramLoginButton: React.FC<TelegramLoginButtonProps> = ({
         <span className="text-destructive">*</span>
       </div>
 
-      {/* Step 1: Open Telegram */}
       <button
         type="button"
-        onClick={openTelegramBot}
-        className="w-full flex items-center justify-center gap-3 bg-[#0088cc] hover:bg-[#0077b5] text-white font-medium py-3 px-4 rounded-xl transition-colors"
+        onClick={handleTelegramLogin}
+        disabled={isLoading}
+        className="w-full flex items-center justify-center gap-3 bg-[#0088cc] hover:bg-[#0077b5] disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium py-3 px-4 rounded-xl transition-colors"
       >
-        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/>
-        </svg>
-        {telegramOpened 
-          ? (language === 'ru' ? 'Открыть Telegram снова' : 'Open Telegram again')
-          : (language === 'ru' ? 'Открыть Telegram' : 'Open Telegram')
-        }
+        {isLoading ? (
+          <Loader2 className="w-5 h-5 animate-spin" />
+        ) : (
+          <LogIn className="w-5 h-5" />
+        )}
+        <span>
+          {isLoading
+            ? (language === 'ru' ? 'Загрузка...' : 'Loading...')
+            : (language === 'ru' ? 'Войти через Telegram' : 'Login with Telegram')}
+        </span>
       </button>
 
-      {/* Step 2: Enter username */}
-      <div className="bg-accent/30 rounded-xl p-4 space-y-3">
-        <p className="text-sm text-foreground">
-          {language === 'ru'
-            ? 'После нажатия "Начать" в боте, введите ваш username:'
-            : 'After clicking "Start" in the bot, enter your username:'}
-        </p>
-        
-        <div className="flex gap-2">
-          <div className="relative flex-1">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">@</span>
-            <input
-              type="text"
-              value={username}
-              onChange={(e) => {
-                setUsername(e.target.value);
-                setInputError('');
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  handleConfirm();
-                }
-              }}
-              placeholder="username"
-              className="w-full pl-8 pr-4 py-2.5 border border-border rounded-xl bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-            />
-          </div>
-          <button
-            type="button"
-            onClick={handleConfirm}
-            className="py-2.5 px-5 bg-green-600 hover:bg-green-700 text-white font-medium rounded-xl transition-colors whitespace-nowrap"
-          >
-            {language === 'ru' ? 'Готово' : 'Done'}
-          </button>
-        </div>
-        
-        {inputError && (
-          <p className="text-sm text-destructive">{inputError}</p>
-        )}
-      </div>
+      <p className="text-xs text-muted-foreground text-center">
+        {language === 'ru'
+          ? 'Нажмите кнопку, чтобы авторизоваться через Telegram'
+          : 'Click the button to authorize via Telegram'}
+      </p>
 
       {error && (
-        <p className="text-sm text-destructive">{error}</p>
+        <p className="text-sm text-destructive text-center">{error}</p>
       )}
     </div>
   );

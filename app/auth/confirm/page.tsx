@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Script from 'next/script';
 import { Loader2, CheckCircle, XCircle } from 'lucide-react';
 
-// Get webapp URL from environment
+// Get webapp URL from environment (fallback)
 const WEBAPP_URL = process.env.NEXT_PUBLIC_WEBAPP_URL || 'https://svetlana-chepilka-main.vercel.app';
 
 export default function AuthConfirmPage() {
@@ -68,11 +68,29 @@ export default function AuthConfirmPage() {
         setStatus('success');
         setMessage('Авторизация успешна! Перенаправление...');
 
+        // Get return URL from localStorage or use default
+        let returnUrl = WEBAPP_URL;
+        try {
+          // Try to access localStorage (may not work in Telegram WebApp context)
+          const savedUrl = localStorage.getItem('telegram_auth_return_url');
+          if (savedUrl) {
+            // Parse URL and add auth_token
+            const url = new URL(savedUrl);
+            url.searchParams.set('auth_token', sessionId);
+            returnUrl = url.toString();
+            localStorage.removeItem('telegram_auth_return_url');
+          } else {
+            returnUrl = `${WEBAPP_URL}?auth_token=${sessionId}`;
+          }
+        } catch {
+          // localStorage not available, use default
+          returnUrl = `${WEBAPP_URL}?auth_token=${sessionId}`;
+        }
+
         // Redirect back to the webapp with auth token
         setTimeout(() => {
-          const redirectUrl = `${WEBAPP_URL}?auth_token=${sessionId}`;
-          window.location.href = redirectUrl;
-        }, 1500);
+          window.location.href = returnUrl;
+        }, 1000);
       } else {
         setStatus('error');
         setMessage(result.error || 'Ошибка сохранения данных');
