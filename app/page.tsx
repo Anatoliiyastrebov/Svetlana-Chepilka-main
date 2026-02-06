@@ -11,7 +11,7 @@ import type { TelegramWebAppUser } from '../telegram-webapp';
 
 // Bot username for Telegram Mini App
 const BOT_USERNAME = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || 'SvetlanaChepilkaBot';
-const MINI_APP_NAME = process.env.NEXT_PUBLIC_TELEGRAM_MINI_APP_NAME || 'auth';
+const MINI_APP_NAME = process.env.NEXT_PUBLIC_TELEGRAM_MINI_APP_NAME || 'Authorization';
 
 export default function HomePage() {
   const { t, language } = useLanguage();
