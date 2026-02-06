@@ -13,25 +13,29 @@ export type TelegramUser = TelegramUserData;
 const BOT_USERNAME = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || 'SvetlanaChepilkaBot';
 const MINI_APP_NAME = process.env.NEXT_PUBLIC_TELEGRAM_MINI_APP_NAME || 'Authorization';
 
-// Safe Base64 encoding/decoding for Unicode strings
+// Safe Base64 encoding for Unicode strings
 const safeEncode = (str: string): string => {
   try {
-    return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, (_, p1) => 
-      String.fromCharCode(parseInt(p1, 16))
-    ));
-  } catch {
+    const utf8Bytes = new TextEncoder().encode(str);
+    const binaryString = Array.from(utf8Bytes, byte => String.fromCharCode(byte)).join('');
+    return btoa(binaryString);
+  } catch (e) {
+    console.error('Encode error:', e);
     return '';
   }
 };
 
+// Safe Base64 decoding for Unicode strings
 const safeDecode = (str: string): string => {
   try {
-    return decodeURIComponent(
-      Array.from(atob(str))
-        .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
-        .join('')
-    );
-  } catch {
+    const binaryString = atob(str);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+    return new TextDecoder().decode(bytes);
+  } catch (e) {
+    console.error('Decode error:', e);
     return '';
   }
 };
