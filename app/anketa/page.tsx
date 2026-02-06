@@ -296,7 +296,9 @@ export default function AnketaPage() {
     setErrors(validationErrors);
 
     if (Object.keys(validationErrors).length > 0) {
-      toast.error(t('required'));
+      // Show which fields have errors in toast
+      const errorFields = Object.keys(validationErrors).join(', ');
+      toast.error(`${t('required')}: ${errorFields}`, { duration: 10000 });
       // Скролл к первому полю с ошибкой после обновления DOM
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
