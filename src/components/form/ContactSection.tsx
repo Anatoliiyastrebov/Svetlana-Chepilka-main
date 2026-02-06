@@ -19,6 +19,7 @@ interface ContactSectionProps {
     contact_method?: string;
   };
   onTelegramAuth: (user: TelegramUser) => void;
+  onTelegramLogout?: () => void;
   onInstagramChange: (value: string) => void;
   onPhoneChange: (value: string) => void;
 }
@@ -31,6 +32,7 @@ export const ContactSection: React.FC<ContactSectionProps> = ({
   telegramUser,
   errors = {},
   onTelegramAuth,
+  onTelegramLogout,
   onInstagramChange,
   onPhoneChange,
 }) => {
@@ -60,6 +62,7 @@ export const ContactSection: React.FC<ContactSectionProps> = ({
         <TelegramLoginButton
           botUsername={BOT_USERNAME}
           onAuth={onTelegramAuth}
+          onLogout={onTelegramLogout}
           telegramUser={telegramUser}
           error={errors.telegram}
         />

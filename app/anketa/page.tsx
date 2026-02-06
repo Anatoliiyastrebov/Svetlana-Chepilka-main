@@ -483,6 +483,9 @@ export default function AnketaPage() {
                   return newErrors;
                 });
               }}
+              onTelegramLogout={() => {
+                setContactData((prev) => ({ ...prev, telegramUser: undefined }));
+              }}
               onInstagramChange={(value) => {
                 setContactData((prev) => ({ ...prev, instagram: value }));
               }}

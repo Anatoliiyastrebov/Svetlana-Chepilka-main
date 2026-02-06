@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { MessageCircle, CheckCircle, ExternalLink, Loader2, LogIn } from 'lucide-react';
+import { MessageCircle, CheckCircle, ExternalLink, Loader2, LogIn, LogOut } from 'lucide-react';
 import { TelegramUserData } from '@/lib/form-utils';
 
 // Re-export for convenience
@@ -16,12 +16,14 @@ const MINI_APP_NAME = process.env.NEXT_PUBLIC_TELEGRAM_MINI_APP_NAME || 'Authori
 interface TelegramLoginButtonProps {
   botUsername?: string;
   onAuth: (user: TelegramUser) => void;
+  onLogout?: () => void;
   telegramUser?: TelegramUser | null;
   error?: string;
 }
 
 export const TelegramLoginButton: React.FC<TelegramLoginButtonProps> = ({
   onAuth,
+  onLogout,
   telegramUser,
   error,
 }) => {
@@ -120,6 +122,15 @@ export const TelegramLoginButton: React.FC<TelegramLoginButtonProps> = ({
     }
   };
 
+  // Handle logout
+  const handleLogout = () => {
+    localStorage.removeItem('telegram_user');
+    localStorage.removeItem('telegram_auth_return_url');
+    if (onLogout) {
+      onLogout();
+    }
+  };
+
   // Get profile link
   const getProfileLink = (): string => {
     if (telegramUser?.username) {
@@ -165,17 +176,27 @@ export const TelegramLoginButton: React.FC<TelegramLoginButtonProps> = ({
           </div>
         </div>
         
-        {profileLink && (
-          <a
-            href={profileLink}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 bg-[#0088cc] hover:bg-[#0077b5] text-white font-medium py-2.5 px-4 rounded-xl transition-colors text-sm"
+        <div className="flex gap-2">
+          {profileLink && (
+            <a
+              href={profileLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex-1 flex items-center justify-center gap-2 bg-[#0088cc] hover:bg-[#0077b5] text-white font-medium py-2.5 px-4 rounded-xl transition-colors text-sm"
+            >
+              <ExternalLink className="w-4 h-4" />
+              {language === 'ru' ? 'Открыть профиль' : 'Open profile'}
+            </a>
+          )}
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="flex items-center justify-center gap-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 font-medium py-2.5 px-4 rounded-xl transition-colors text-sm"
+            title={language === 'ru' ? 'Выйти' : 'Logout'}
           >
-            <ExternalLink className="w-4 h-4" />
-            {language === 'ru' ? 'Открыть профиль' : 'Open profile'}
-          </a>
-        )}
+            <LogOut className="w-4 h-4" />
+          </button>
+        </div>
       </div>
     );
   }
