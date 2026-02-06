@@ -567,8 +567,14 @@ export const generateMarkdown = (
       : `tg://user?id=${user.id}`;
     const openProfileLabel = lang === 'ru' ? 'Открыть профиль' : 'Open profile';
     
-    // Build contact info - only show ID if we have it (not 0)
-    let telegramInfo = `Telegram: @${escapeHtml(user.username || user.first_name)}`;
+    // Build contact info
+    const fullName = [user.first_name, user.last_name].filter(Boolean).join(' ');
+    let telegramInfo = '';
+    if (user.username) {
+      telegramInfo = `Telegram: @${escapeHtml(user.username)}`;
+    } else {
+      telegramInfo = `Telegram: ${escapeHtml(fullName || 'User')}`;
+    }
     if (user.id && user.id !== 0) {
       telegramInfo += `\nID: ${user.id}`;
     }
