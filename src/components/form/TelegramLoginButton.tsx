@@ -32,53 +32,51 @@ export const TelegramLoginButton: React.FC<TelegramLoginButtonProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
 
-  // Handle auth_token from URL (after Telegram redirect)
-  const handleAuthToken = useCallback(async (authToken: string) => {
+  // Handle tg_user from URL (after Telegram redirect) - no server session needed
+  const handleTgUser = useCallback((encodedUser: string) => {
     if (telegramUser) return; // Already authorized
     
     setIsLoading(true);
     try {
-      const response = await fetch(`/api/auth/get-user-data?token=${authToken}`);
-      const result = await response.json();
-
-      if (result.success && result.user) {
-        // Convert to TelegramUser format
-        const userData: TelegramUser = {
-          id: result.user.id,
-          first_name: result.user.first_name,
-          last_name: result.user.last_name,
-          username: result.user.username,
-          auth_date: Math.floor(Date.now() / 1000),
-          hash: '',
-        };
-        
-        onAuth(userData);
-        
-        // Save to localStorage for persistence
-        localStorage.setItem('telegram_user', JSON.stringify(userData));
-        
-        // Clean up URL
-        const url = new URL(window.location.href);
-        url.searchParams.delete('auth_token');
-        window.history.replaceState({}, '', url.toString());
-      }
+      // Decode user data from URL
+      const decodedData = JSON.parse(decodeURIComponent(atob(encodedUser)));
+      
+      // Convert to TelegramUser format
+      const userData: TelegramUser = {
+        id: decodedData.id,
+        first_name: decodedData.first_name,
+        last_name: decodedData.last_name,
+        username: decodedData.username,
+        auth_date: Math.floor(Date.now() / 1000),
+        hash: '',
+      };
+      
+      onAuth(userData);
+      
+      // Save to localStorage for persistence
+      localStorage.setItem('telegram_user', JSON.stringify(userData));
+      
+      // Clean up URL
+      const url = new URL(window.location.href);
+      url.searchParams.delete('tg_user');
+      window.history.replaceState({}, '', url.toString());
     } catch (error) {
-      console.error('Error fetching user data:', error);
+      console.error('Error decoding user data:', error);
     } finally {
       setIsLoading(false);
       setAuthChecked(true);
     }
   }, [telegramUser, onAuth]);
 
-  // Check for auth_token in URL on mount
+  // Check for tg_user in URL on mount (new flow - no server session)
   useEffect(() => {
-    const authToken = searchParams.get('auth_token');
-    if (authToken && !telegramUser && !authChecked) {
-      handleAuthToken(authToken);
+    const tgUser = searchParams.get('tg_user');
+    if (tgUser && !telegramUser && !authChecked) {
+      handleTgUser(tgUser);
     } else {
       setAuthChecked(true);
     }
-  }, [searchParams, telegramUser, authChecked, handleAuthToken]);
+  }, [searchParams, telegramUser, authChecked, handleTgUser]);
 
   // Check localStorage for saved user on mount
   useEffect(() => {
@@ -96,30 +94,15 @@ export const TelegramLoginButton: React.FC<TelegramLoginButtonProps> = ({
   }, [telegramUser, authChecked, onAuth]);
 
   // Handle Telegram login button click
-  const handleTelegramLogin = async () => {
+  const handleTelegramLogin = () => {
     setIsLoading(true);
-    try {
-      // Create session
-      const response = await fetch('/api/auth/create-session', {
-        method: 'POST',
-      });
-      const result = await response.json();
-
-      if (result.success && result.sessionId) {
-        // Save current URL to return after auth
-        localStorage.setItem('telegram_auth_return_url', window.location.href);
-        
-        // Redirect to Telegram Mini App with session ID
-        const telegramUrl = `https://t.me/${BOT_USERNAME}/${MINI_APP_NAME}?startapp=${result.sessionId}`;
-        window.location.href = telegramUrl;
-      } else {
-        console.error('Failed to create session');
-        setIsLoading(false);
-      }
-    } catch (error) {
-      console.error('Error during login:', error);
-      setIsLoading(false);
-    }
+    
+    // Save current URL to return after auth
+    localStorage.setItem('telegram_auth_return_url', window.location.href);
+    
+    // Redirect directly to Telegram Mini App (no server session needed)
+    const telegramUrl = `https://t.me/${BOT_USERNAME}/${MINI_APP_NAME}`;
+    window.location.href = telegramUrl;
   };
 
   // Handle logout

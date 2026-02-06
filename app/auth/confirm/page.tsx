@@ -28,7 +28,6 @@ export default function AuthConfirmPage() {
       tg.expand();
 
       const user = tg.initDataUnsafe.user;
-      const sessionId = tg.initDataUnsafe.start_param;
 
       if (!user) {
         setStatus('error');
@@ -36,65 +35,41 @@ export default function AuthConfirmPage() {
         return;
       }
 
-      if (!sessionId) {
-        setStatus('error');
-        setMessage('Отсутствует ID сессии. Попробуйте снова с главной страницы.');
-        return;
-      }
+      setStatus('success');
+      setMessage('Авторизация успешна! Перенаправление...');
 
-      // Save user data to session
-      const response = await fetch('/api/auth/save-user', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          sessionId,
-          user: {
-            id: user.id,
-            first_name: user.first_name,
-            last_name: user.last_name,
-            username: user.username,
-            language_code: user.language_code,
-            is_premium: user.is_premium,
-            photo_url: user.photo_url,
-          },
-        }),
-      });
+      // Encode user data directly in URL (no server session needed)
+      const userData = {
+        id: user.id,
+        first_name: user.first_name,
+        last_name: user.last_name || '',
+        username: user.username || '',
+      };
+      
+      // Base64 encode the user data
+      const encodedUser = btoa(encodeURIComponent(JSON.stringify(userData)));
 
-      const result = await response.json();
-
-      if (result.success) {
-        setStatus('success');
-        setMessage('Авторизация успешна! Перенаправление...');
-
-        // Get return URL from localStorage or use default
-        let returnUrl = WEBAPP_URL;
-        try {
-          // Try to access localStorage (may not work in Telegram WebApp context)
-          const savedUrl = localStorage.getItem('telegram_auth_return_url');
-          if (savedUrl) {
-            // Parse URL and add auth_token
-            const url = new URL(savedUrl);
-            url.searchParams.set('auth_token', sessionId);
-            returnUrl = url.toString();
-            localStorage.removeItem('telegram_auth_return_url');
-          } else {
-            returnUrl = `${WEBAPP_URL}?auth_token=${sessionId}`;
-          }
-        } catch {
-          // localStorage not available, use default
-          returnUrl = `${WEBAPP_URL}?auth_token=${sessionId}`;
+      // Get return URL from start_param or use default
+      let returnUrl = WEBAPP_URL;
+      try {
+        const savedUrl = localStorage.getItem('telegram_auth_return_url');
+        if (savedUrl) {
+          returnUrl = savedUrl;
+          localStorage.removeItem('telegram_auth_return_url');
         }
-
-        // Redirect back to the webapp with auth token
-        setTimeout(() => {
-          window.location.href = returnUrl;
-        }, 1000);
-      } else {
-        setStatus('error');
-        setMessage(result.error || 'Ошибка сохранения данных');
+      } catch {
+        // localStorage not available in Telegram context
       }
+
+      // Build redirect URL with encoded user data
+      const url = new URL(returnUrl);
+      url.searchParams.set('tg_user', encodedUser);
+      
+      // Redirect back to the webapp
+      setTimeout(() => {
+        window.location.href = url.toString();
+      }, 1000);
+      
     } catch (error) {
       console.error('Auth error:', error);
       setStatus('error');
@@ -105,7 +80,6 @@ export default function AuthConfirmPage() {
   // Run auth when script is loaded
   useEffect(() => {
     if (scriptLoaded) {
-      // Small delay to ensure Telegram WebApp is fully initialized
       const timer = setTimeout(handleAuth, 300);
       return () => clearTimeout(timer);
     }
