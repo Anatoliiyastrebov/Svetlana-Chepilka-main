@@ -280,7 +280,15 @@ export default function AnketaPage() {
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           const firstErrorField = document.querySelector('[data-error="true"]');
-          firstErrorField?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          if (firstErrorField) {
+            const elementRect = firstErrorField.getBoundingClientRect();
+            const absoluteElementTop = elementRect.top + window.pageYOffset;
+            const offset = 100; // Отступ сверху для видимости
+            window.scrollTo({
+              top: absoluteElementTop - offset,
+              behavior: 'smooth'
+            });
+          }
         });
       });
       return;
@@ -389,7 +397,7 @@ export default function AnketaPage() {
                           {compactQuestions.map((question) => (
                             <div
                               key={question.id}
-                              data-error={!!errors[question.id]}
+                              data-error={!!errors[question.id] || !!errors[`${question.id}_additional`]}
                             >
                               <QuestionField
                                 question={question}
@@ -419,7 +427,7 @@ export default function AnketaPage() {
                         return (
                           <div
                             key={question.id}
-                            data-error={!!errors[question.id]}
+                            data-error={!!errors[question.id] || !!errors[`${question.id}_additional`]}
                           >
                             <QuestionField
                               question={question}
