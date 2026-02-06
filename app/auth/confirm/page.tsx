@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import Script from 'next/script';
-import { Loader2, CheckCircle, XCircle } from 'lucide-react';
+import { Loader2, CheckCircle, XCircle, UserCheck } from 'lucide-react';
 
 // Environment variable for fallback URL
 const WEBAPP_URL = process.env.NEXT_PUBLIC_WEBAPP_URL || 'https://svetlana-chepilka-main.vercel.app';
@@ -10,7 +10,6 @@ const WEBAPP_URL = process.env.NEXT_PUBLIC_WEBAPP_URL || 'https://svetlana-chepi
 // Safe Base64 encoding for Unicode strings
 const safeEncode = (str: string): string => {
   try {
-    // Convert to UTF-8 bytes, then to base64
     const utf8Bytes = new TextEncoder().encode(str);
     const binaryString = Array.from(utf8Bytes, byte => String.fromCharCode(byte)).join('');
     return btoa(binaryString);
@@ -36,14 +35,16 @@ const safeDecode = (str: string): string => {
 };
 
 export default function AuthConfirmPage() {
-  const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
+  const [status, setStatus] = useState<'loading' | 'ready' | 'redirecting' | 'success' | 'error'>('loading');
   const [message, setMessage] = useState('Загрузка...');
   const [scriptLoaded, setScriptLoaded] = useState(false);
   const [redirectUrl, setRedirectUrl] = useState<string | null>(null);
+  const [userName, setUserName] = useState<string>('');
 
-  const handleAuth = useCallback(() => {
+  // Prepare auth data when script loads
+  const prepareAuth = useCallback(() => {
     try {
-      setMessage('Авторизация...');
+      setMessage('Подготовка...');
       
       // Check if Telegram WebApp is available
       if (typeof window === 'undefined' || !window.Telegram?.WebApp) {
@@ -63,6 +64,10 @@ export default function AuthConfirmPage() {
         setMessage('Не удалось получить данные пользователя.');
         return;
       }
+
+      // Set user name for display
+      const displayName = user.first_name + (user.last_name ? ' ' + user.last_name : '');
+      setUserName(displayName);
 
       // Prepare user data
       const userData = {
@@ -86,11 +91,8 @@ export default function AuthConfirmPage() {
       let returnUrl = `${WEBAPP_URL}/anketa`;
       const startParam = tg.initDataUnsafe?.start_param;
       
-      console.log('Start param:', startParam);
-      
       if (startParam) {
         const decodedUrl = safeDecode(startParam);
-        console.log('Decoded URL:', decodedUrl);
         if (decodedUrl && decodedUrl.startsWith('http')) {
           returnUrl = decodedUrl;
         }
@@ -100,66 +102,66 @@ export default function AuthConfirmPage() {
       const url = new URL(returnUrl);
       url.searchParams.set('tg_user', encodedUser);
       
-      const finalUrl = url.toString();
-      console.log('Final redirect URL:', finalUrl);
-      
-      setRedirectUrl(finalUrl);
-      setStatus('success');
-      setMessage('Авторизация успешна!');
-
-      // Redirect after delay
-      setTimeout(() => {
-        try {
-          // Try openLink first (opens in external browser)
-          if (tg.openLink) {
-            console.log('Using tg.openLink');
-            tg.openLink(finalUrl);
-            // Close Mini App after small delay
-            setTimeout(() => {
-              if (tg.close) tg.close();
-            }, 500);
-          } else {
-            // Fallback to regular redirect
-            console.log('Using window.location');
-            window.location.href = finalUrl;
-          }
-        } catch (e) {
-          console.error('Redirect error:', e);
-          // Fallback
-          window.open(finalUrl, '_blank');
-        }
-      }, 1500);
+      setRedirectUrl(url.toString());
+      setStatus('ready');
+      setMessage('Готово к авторизации');
       
     } catch (error) {
       console.error('Auth error:', error);
       setStatus('error');
-      setMessage('Произошла ошибка авторизации');
+      setMessage('Произошла ошибка');
     }
   }, []);
 
-  // Run auth when script is loaded
+  // Handle confirm button click
+  const handleConfirm = useCallback(() => {
+    if (!redirectUrl) return;
+    
+    setStatus('redirecting');
+    setMessage('Переход к анкете...');
+
+    const tg = window.Telegram?.WebApp;
+
+    // Redirect after short delay
+    setTimeout(() => {
+      try {
+        if (tg?.openLink) {
+          tg.openLink(redirectUrl);
+          // Close Mini App after 3 seconds
+          setTimeout(() => {
+            setStatus('success');
+            setMessage('Готово!');
+            setTimeout(() => {
+              if (tg?.close) tg.close();
+            }, 2000);
+          }, 1000);
+        } else {
+          window.open(redirectUrl, '_blank');
+        }
+      } catch (e) {
+        console.error('Redirect error:', e);
+        window.open(redirectUrl, '_blank');
+      }
+    }, 500);
+  }, [redirectUrl]);
+
+  // Run prepare when script is loaded
   useEffect(() => {
     if (scriptLoaded) {
-      const timer = setTimeout(handleAuth, 500);
+      const timer = setTimeout(prepareAuth, 300);
       return () => clearTimeout(timer);
     }
-  }, [scriptLoaded, handleAuth]);
+  }, [scriptLoaded, prepareAuth]);
 
   const handleRetry = useCallback(() => {
     setStatus('loading');
     setMessage('Повторная попытка...');
-    setTimeout(handleAuth, 500);
-  }, [handleAuth]);
+    setTimeout(prepareAuth, 300);
+  }, [prepareAuth]);
 
   const handleClose = useCallback(() => {
     window.Telegram?.WebApp?.close();
   }, []);
-
-  const handleManualRedirect = useCallback(() => {
-    if (redirectUrl) {
-      window.open(redirectUrl, '_blank');
-    }
-  }, [redirectUrl]);
 
   return (
     <>
@@ -167,12 +169,8 @@ export default function AuthConfirmPage() {
       <Script
         src="https://telegram.org/js/telegram-web-app.js"
         strategy="afterInteractive"
-        onLoad={() => {
-          console.log('Telegram script loaded');
-          setScriptLoaded(true);
-        }}
-        onError={(e) => {
-          console.error('Script load error:', e);
+        onLoad={() => setScriptLoaded(true)}
+        onError={() => {
           setStatus('error');
           setMessage('Не удалось загрузить Telegram WebApp.');
         }}
@@ -180,6 +178,8 @@ export default function AuthConfirmPage() {
       
       <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
+          
+          {/* Loading */}
           {status === 'loading' && (
             <>
               <Loader2 className="w-16 h-16 text-blue-500 animate-spin mx-auto mb-4" />
@@ -190,27 +190,55 @@ export default function AuthConfirmPage() {
             </>
           )}
 
+          {/* Ready - show confirm button */}
+          {status === 'ready' && (
+            <>
+              <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <UserCheck className="w-10 h-10 text-blue-600" />
+              </div>
+              <h1 className="text-xl font-semibold text-gray-800 mb-2">
+                Авторизация через Telegram
+              </h1>
+              {userName && (
+                <p className="text-gray-600 mb-4">
+                  Вы входите как <strong>{userName}</strong>
+                </p>
+              )}
+              <p className="text-gray-500 text-sm mb-6">
+                Нажмите кнопку для подтверждения авторизации и возврата к анкете
+              </p>
+              <button
+                onClick={handleConfirm}
+                className="w-full px-6 py-3 bg-blue-500 hover:bg-blue-600 rounded-xl text-white font-medium transition-colors text-lg"
+              >
+                Подтвердить авторизацию
+              </button>
+            </>
+          )}
+
+          {/* Redirecting */}
+          {status === 'redirecting' && (
+            <>
+              <Loader2 className="w-16 h-16 text-blue-500 animate-spin mx-auto mb-4" />
+              <h1 className="text-xl font-semibold text-gray-800 mb-2">
+                Переход...
+              </h1>
+              <p className="text-gray-600">{message}</p>
+            </>
+          )}
+
+          {/* Success */}
           {status === 'success' && (
             <>
               <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
               <h1 className="text-xl font-semibold text-gray-800 mb-2">
-                Успешно!
+                Готово!
               </h1>
-              <p className="text-gray-600 mb-2">{message}</p>
-              <p className="text-sm text-gray-500 mb-4">
-                Открытие браузера...
-              </p>
-              {redirectUrl && (
-                <button
-                  onClick={handleManualRedirect}
-                  className="w-full px-6 py-2 bg-blue-500 hover:bg-blue-600 rounded-lg text-white transition-colors"
-                >
-                  Открыть анкету вручную
-                </button>
-              )}
+              <p className="text-gray-600">Окно закроется автоматически...</p>
             </>
           )}
 
+          {/* Error */}
           {status === 'error' && (
             <>
               <XCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
