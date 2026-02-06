@@ -181,13 +181,25 @@ export const TelegramLoginButton: React.FC<TelegramLoginButtonProps> = ({
       
       // Create short param string: path|lang (e.g., "/anketa|ru")
       const params = `${path}|${lang}`;
-      const encoded = btoa(params); // This will be short enough
+      const encoded = btoa(params);
       
-      console.log('Opening Mini App with params:', params, 'encoded:', encoded);
-      
-      // Open Telegram Mini App with encoded params
+      // Build Telegram Mini App URL
       const telegramUrl = `https://t.me/${BOT_USERNAME}/${MINI_APP_NAME}?startapp=${encoded}`;
+      
+      console.log('Opening Mini App:', telegramUrl);
+      
+      // Try multiple methods to open Telegram
+      // Method 1: Direct navigation
       window.location.href = telegramUrl;
+      
+      // Fallback after 2 seconds if still on page
+      setTimeout(() => {
+        if (document.hasFocus()) {
+          // Try opening in new window
+          window.open(telegramUrl, '_blank');
+        }
+        setIsLoading(false);
+      }, 2000);
     } catch (error) {
       console.error('Error during login redirect:', error);
       setIsLoading(false);
@@ -259,10 +271,14 @@ export const TelegramLoginButton: React.FC<TelegramLoginButtonProps> = ({
           )}
           <button
             type="button"
-            onClick={handleLogout}
+            onClick={() => {
+              handleLogout();
+              // Small delay then open login
+              setTimeout(handleTelegramLogin, 100);
+            }}
             className="flex items-center justify-center gap-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 font-medium py-2.5 px-4 rounded-xl transition-colors text-sm"
-            title={language === 'ru' ? 'Выйти' : 'Logout'}
-            aria-label={language === 'ru' ? 'Выйти' : 'Logout'}
+            title={language === 'ru' ? 'Сменить аккаунт' : 'Change account'}
+            aria-label={language === 'ru' ? 'Сменить аккаунт' : 'Change account'}
           >
             <LogOut className="w-4 h-4" />
           </button>
