@@ -485,77 +485,115 @@ export const generateMarkdown = (
 
     if (!hasAnswers) return;
 
-    // Section header
-    html += `<b>${escapeHtml(section.title[lang])}</b>\n`;
+    // For numbered sections: put number before section title
+    // Check if this section starts after digestion
+    const sectionHasDigestion = section.questions.some(
+      (q) => q.id === 'digestion' || q.id === 'digestion_problems'
+    );
+    if (sectionHasDigestion) {
+      digestionQuestionPassed = true;
+      questionNumber = 1;
+    }
 
-    section.questions.forEach((question) => {
-      // В блок «Анализы и обследования»: файлы выводим только если выбран «Да»
-      if (question.id === 'attach_files' && formData['has_tests_or_ultrasound'] !== 'yes') {
-        return;
-      }
-      const value = formData[question.id];
-      const additional = additionalData[`${question.id}_additional`];
-
-      if (value && (Array.isArray(value) ? value.length > 0 : (typeof value === 'string' && value.trim() !== ''))) {
-        const label = question.label[lang];
-        
-        // Question number - start numbering from "digestion" or "digestion_problems" question
-        if (question.id === 'digestion' || question.id === 'digestion_problems') {
-          digestionQuestionPassed = true;
-          questionNumber = 1;
-        }
-        
-        // Format answer
-        let answerText = '';
-        if (question.type === 'file') {
-          // For file fields, show file names (value is stored as comma-separated string in formData)
-          answerText = String(value);
-        } else if (Array.isArray(value)) {
-          const optionLabels = value.map((v) => {
-            const opt = question.options?.find((o) => o.value === v);
-            return opt ? opt.label[lang] : v;
-          });
-          answerText = optionLabels.join(', ');
-        } else if (question.options) {
-          const opt = question.options.find((o) => o.value === value);
-          answerText = opt ? opt.label[lang] : value;
-        } else {
-          // Format value with unit if applicable
-          answerText = question.unit 
-            ? formatValueWithUnit(String(value), question.unit, lang)
-            : String(value);
-        }
-
-        // Check if label should be skipped (same as section title or generic "Отметьте подходящее")
-        const sectionTitle = (section.title[lang] || '').replace(/\s+/g, ' ').trim();
-        const questionLabel = (label || '').replace(/\s+/g, ' ').trim();
-        const genericLabels = ['Отметьте подходящее', 'Select applicable', 'Mark applicable'];
-        const skipLabel = questionLabel === sectionTitle || genericLabels.includes(questionLabel);
-        
-        if (skipLabel) {
-          if (digestionQuestionPassed) {
-            html += `${questionNumber}. `;
-            questionNumber++;
-          }
-          html += `${escapeHtml(answerText)}`;
-        } else {
-          if (digestionQuestionPassed) {
-            html += `${questionNumber}. <b>${escapeHtml(label)}</b>\n`;
-            questionNumber++;
-          } else {
-            html += `<b>${escapeHtml(label)}</b>\n`;
-          }
-          html += `${escapeHtml(answerText)}`;
-        }
-        
-        // Additional info on same line if present
-        if (additional && additional.trim() !== '') {
-          html += ` <i>(${escapeHtml(additional.trim())})</i>`;
-        }
-        
-        html += `\n`;
-      }
+    // Determine if this section has only one question with generic/matching label
+    const answeredQuestions = section.questions.filter((q) => {
+      if (q.id === 'attach_files' && formData['has_tests_or_ultrasound'] !== 'yes') return false;
+      const v = formData[q.id];
+      return v && (Array.isArray(v) ? v.length > 0 : (typeof v === 'string' && v.trim() !== ''));
     });
+    const genericLabels = ['Отметьте подходящее', 'Select applicable', 'Mark applicable'];
+    const sectionTitle = (section.title[lang] || '').replace(/\s+/g, ' ').trim();
+    const isSingleGenericQuestion = answeredQuestions.length === 1 && 
+      (genericLabels.includes((answeredQuestions[0].label[lang] || '').trim()) || 
+       (answeredQuestions[0].label[lang] || '').trim() === sectionTitle);
+
+    // Section header with number if applicable
+    if (digestionQuestionPassed && isSingleGenericQuestion) {
+      // Single generic question: "8. Section Title\n Answer"
+      html += `${questionNumber}. <b>${escapeHtml(section.title[lang])}</b>\n`;
+      questionNumber++;
+      
+      const q = answeredQuestions[0];
+      const value = formData[q.id];
+      const additional = additionalData[`${q.id}_additional`];
+      let answerText = '';
+      if (Array.isArray(value)) {
+        answerText = value.map((v) => {
+          const opt = q.options?.find((o) => o.value === v);
+          return opt ? opt.label[lang] : v;
+        }).join(', ');
+      } else if (q.options) {
+        const opt = q.options.find((o) => o.value === value);
+        answerText = opt ? opt.label[lang] : String(value);
+      } else {
+        answerText = q.unit ? formatValueWithUnit(String(value), q.unit, lang) : String(value);
+      }
+      html += `${escapeHtml(answerText)}`;
+      if (additional && additional.trim() !== '') {
+        html += ` <i>(${escapeHtml(additional.trim())})</i>`;
+      }
+      html += `\n`;
+    } else {
+      // Regular section with multiple questions
+      html += `<b>${escapeHtml(section.title[lang])}</b>\n`;
+
+      section.questions.forEach((question) => {
+        if (question.id === 'attach_files' && formData['has_tests_or_ultrasound'] !== 'yes') {
+          return;
+        }
+        const value = formData[question.id];
+        const additional = additionalData[`${question.id}_additional`];
+
+        if (value && (Array.isArray(value) ? value.length > 0 : (typeof value === 'string' && value.trim() !== ''))) {
+          const label = question.label[lang];
+          
+          // Format answer
+          let answerText = '';
+          if (question.type === 'file') {
+            answerText = String(value);
+          } else if (Array.isArray(value)) {
+            const optionLabels = value.map((v) => {
+              const opt = question.options?.find((o) => o.value === v);
+              return opt ? opt.label[lang] : v;
+            });
+            answerText = optionLabels.join(', ');
+          } else if (question.options) {
+            const opt = question.options.find((o) => o.value === value);
+            answerText = opt ? opt.label[lang] : value;
+          } else {
+            answerText = question.unit 
+              ? formatValueWithUnit(String(value), question.unit, lang)
+              : String(value);
+          }
+
+          // Check if label should be skipped
+          const questionLabel = (label || '').replace(/\s+/g, ' ').trim();
+          const skipLabel = questionLabel === sectionTitle || genericLabels.includes(questionLabel);
+          
+          if (skipLabel) {
+            if (digestionQuestionPassed) {
+              html += `${questionNumber}. `;
+              questionNumber++;
+            }
+            html += `${escapeHtml(answerText)}`;
+          } else {
+            if (digestionQuestionPassed) {
+              html += `${questionNumber}. <b>${escapeHtml(label)}</b>\n`;
+              questionNumber++;
+            } else {
+              html += `<b>${escapeHtml(label)}</b>\n`;
+            }
+            html += `${escapeHtml(answerText)}`;
+          }
+          
+          if (additional && additional.trim() !== '') {
+            html += ` <i>(${escapeHtml(additional.trim())})</i>`;
+          }
+          
+          html += `\n`;
+        }
+      });
+    }
   });
 
   // Contact section

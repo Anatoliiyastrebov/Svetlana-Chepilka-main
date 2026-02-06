@@ -86,7 +86,11 @@ export default function AnketaPage() {
   useEffect(() => {
     const saved = loadFormData(type, language);
     if (saved) {
-      setFormData(saved.formData);
+      // Clear attach_files from saved data - File objects can't be persisted
+      const cleanFormData = { ...saved.formData };
+      delete cleanFormData['attach_files'];
+      
+      setFormData(cleanFormData);
       setAdditionalData(saved.additionalData);
       // Merge contactData to preserve telegramUser from TelegramLoginButton
       setContactData((prev) => ({
