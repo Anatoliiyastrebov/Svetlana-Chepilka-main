@@ -78,11 +78,13 @@ export default function AuthConfirmPage() {
       } else {
         window.open(redirectUrl, '_blank');
       }
-      // Close Mini App immediately
-      tg?.close();
     } catch {
       window.open(redirectUrl, '_blank');
     }
+    // Close after openLink has triggered
+    setTimeout(() => { try { tg?.close(); } catch {} }, 300);
+    setTimeout(() => { try { tg?.close(); } catch {} }, 1000);
+    setTimeout(() => { try { tg?.close(); } catch {} }, 2000);
   }, [redirectUrl]);
 
   useEffect(() => {
