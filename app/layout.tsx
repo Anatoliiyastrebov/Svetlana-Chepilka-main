@@ -9,7 +9,7 @@ export const metadata: Metadata = {
   title: 'Светлана Чепилка - Консультация по здоровью',
   description: 'Анкеты для консультации по здоровью',
   icons: {
-    icon: '/favicon.ico',
+    icon: '/favicon.png',
   },
 };
 
