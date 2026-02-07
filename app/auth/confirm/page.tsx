@@ -78,7 +78,8 @@ export default function AuthConfirmPage() {
       } else {
         window.open(redirectUrl, '_blank');
       }
-      setTimeout(() => { tg?.close(); }, 1500);
+      // Close Mini App immediately
+      tg?.close();
     } catch {
       window.open(redirectUrl, '_blank');
     }
