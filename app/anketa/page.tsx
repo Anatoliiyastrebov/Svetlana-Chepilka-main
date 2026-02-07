@@ -300,9 +300,7 @@ export default function AnketaPage() {
     setErrors(validationErrors);
 
     if (Object.keys(validationErrors).length > 0) {
-      // Show which fields have errors in toast
-      const errorFields = Object.keys(validationErrors).join(', ');
-      toast.error(`${t('required')}: ${errorFields}`, { duration: 10000 });
+      toast.error(language === 'ru' ? 'Заполните все обязательные поля' : 'Please fill in all required fields');
       // Скролл к первому полю с ошибкой после обновления DOM
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
