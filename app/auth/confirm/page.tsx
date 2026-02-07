@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import Script from 'next/script';
-import { Loader2, CheckCircle, XCircle, ArrowRight } from 'lucide-react';
+import { Loader2, CheckCircle, XCircle } from 'lucide-react';
 
 const WEBAPP_URL = process.env.NEXT_PUBLIC_WEBAPP_URL || 'https://svetlana-chepilka-main.vercel.app';
 
@@ -21,8 +21,6 @@ export default function AuthConfirmPage() {
   const [message, setMessage] = useState('Авторизация...');
   const [scriptLoaded, setScriptLoaded] = useState(false);
   const [userName, setUserName] = useState('');
-  const [redirectUrl, setRedirectUrl] = useState('');
-  const linkRef = useRef<HTMLAnchorElement>(null);
 
   const handleAuth = useCallback(() => {
     try {
@@ -63,33 +61,27 @@ export default function AuthConfirmPage() {
       }
 
       const url = `${WEBAPP_URL}/anketa?lang=${lang}&type=${type}&tg_user=${encoded}`;
-      setRedirectUrl(url);
+
       setStatus('ready');
 
-      // Try auto-redirect: navigate the WebView to the URL
-      setTimeout(() => {
-        window.location.href = url;
-      }, 1500);
+      // Setup Telegram native MainButton (big button at bottom of Mini App)
+      tg.MainButton.setText('Перейти к анкете →');
+      tg.MainButton.color = '#22c55e';
+      tg.MainButton.textColor = '#ffffff';
+      tg.MainButton.show();
+
+      // Handle MainButton click
+      tg.MainButton.onClick(() => {
+        tg.MainButton.hide();
+        tg.openLink(url, { try_instant_view: false });
+        setTimeout(() => tg.close(), 1500);
+      });
 
     } catch {
       setStatus('error');
       setMessage('Произошла ошибка');
     }
   }, []);
-
-  // Fallback: manual button click
-  const handleOpen = useCallback(() => {
-    if (!redirectUrl) return;
-    const tg = window.Telegram?.WebApp;
-    try {
-      if (tg?.openLink) {
-        tg.openLink(redirectUrl, { try_instant_view: false });
-      }
-      setTimeout(() => { tg?.close(); }, 1500);
-    } catch {
-      window.location.href = redirectUrl;
-    }
-  }, [redirectUrl]);
 
   useEffect(() => {
     if (scriptLoaded) {
@@ -120,21 +112,9 @@ export default function AuthConfirmPage() {
             <>
               <CheckCircle className="w-20 h-20 text-green-500 mx-auto mb-4" />
               <h1 className="text-2xl font-bold text-gray-800 mb-1">Добро пожаловать!</h1>
-              <p className="text-lg text-gray-600 mb-2">{userName}</p>
-              <p className="text-sm text-gray-400 mb-6">Переход к анкете...</p>
-
-              {/* Hidden auto-redirect link */}
-              <a ref={linkRef} href={redirectUrl} target="_blank" rel="noopener noreferrer" className="hidden">redirect</a>
-
-              {/* Fallback button if auto-redirect didn't work */}
-              <button
-                onClick={handleOpen}
-                className="w-full px-6 py-4 bg-green-500 hover:bg-green-600 active:bg-green-700 rounded-2xl text-white font-bold transition-colors text-xl flex items-center justify-center gap-3 shadow-lg"
-              >
-                <span>Перейти к анкете</span>
-                <ArrowRight className="w-6 h-6" />
-              </button>
-              <p className="text-xs text-gray-400 mt-3">Нажмите если переход не произошёл автоматически</p>
+              <p className="text-lg text-gray-600 mb-4">{userName}</p>
+              <p className="text-gray-500">Нажмите кнопку внизу для перехода к анкете</p>
+              <p className="text-sm text-gray-400 mt-1">↓</p>
             </>
           )}
 

@@ -8,6 +8,19 @@ interface TelegramWebAppUser {
   photo_url?: string;
 }
 
+interface TelegramMainButton {
+  text: string;
+  color: string;
+  textColor: string;
+  isVisible: boolean;
+  isActive: boolean;
+  setText: (text: string) => void;
+  show: () => void;
+  hide: () => void;
+  onClick: (callback: () => void) => void;
+  offClick: (callback: () => void) => void;
+}
+
 interface TelegramWebApp {
   initData: string;
   initDataUnsafe: {
@@ -18,6 +31,7 @@ interface TelegramWebApp {
   close: () => void;
   expand: () => void;
   openLink: (url: string, options?: { try_instant_view?: boolean }) => void;
+  MainButton: TelegramMainButton;
 }
 
 declare global {
