@@ -143,17 +143,38 @@ export const QuestionField: React.FC<QuestionFieldProps> = ({
         const files = Array.isArray(value) && value.length > 0 && value[0] instanceof File 
           ? (value as File[]) 
           : [];
+        const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20 MB
+        const MAX_FILES = 10;
         return (
           <div className="space-y-2">
             <input
               ref={fileInputRef}
               type="file"
               multiple
-              accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx"
+              accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx,.heic"
               className="hidden"
               onChange={(e) => {
                 const selectedFiles = Array.from(e.target.files || []);
-                onChange(selectedFiles);
+                const currentFiles = files;
+                
+                // Check max files
+                if (currentFiles.length + selectedFiles.length > MAX_FILES) {
+                  alert(language === 'ru' 
+                    ? `Максимум ${MAX_FILES} файлов` 
+                    : `Maximum ${MAX_FILES} files`);
+                  return;
+                }
+                
+                // Check file sizes
+                const oversized = selectedFiles.filter(f => f.size > MAX_FILE_SIZE);
+                if (oversized.length > 0) {
+                  alert(language === 'ru' 
+                    ? `Файл "${oversized[0].name}" превышает 20 МБ` 
+                    : `File "${oversized[0].name}" exceeds 20 MB`);
+                  return;
+                }
+                
+                onChange([...currentFiles, ...selectedFiles]);
               }}
             />
             <button
@@ -166,13 +187,13 @@ export const QuestionField: React.FC<QuestionFieldProps> = ({
             {files.length > 0 && (
               <div className="mt-2 space-y-1">
                 <p className="text-sm text-muted-foreground">
-                  {t('selectedFiles')}
+                  {t('selectedFiles')} ({files.length}/{MAX_FILES})
                 </p>
                 {files.map((file, index) => (
                   <div key={index} className="flex items-center gap-2 text-sm bg-secondary p-2 rounded">
-                    <span className="text-foreground">{file.name}</span>
-                    <span className="text-muted-foreground">
-                      ({(file.size / 1024 / 1024).toFixed(2)} MB)
+                    <span className="text-foreground truncate">{file.name}</span>
+                    <span className="text-muted-foreground flex-shrink-0">
+                      ({(file.size / 1024 / 1024).toFixed(1)} МБ)
                     </span>
                     <button
                       type="button"
@@ -180,7 +201,7 @@ export const QuestionField: React.FC<QuestionFieldProps> = ({
                         const newFiles = files.filter((_, i) => i !== index);
                         onChange(newFiles);
                       }}
-                      className="ml-auto text-destructive hover:text-destructive/80"
+                      className="ml-auto text-destructive hover:text-destructive/80 flex-shrink-0"
                     >
                       ×
                     </button>
@@ -189,7 +210,9 @@ export const QuestionField: React.FC<QuestionFieldProps> = ({
               </div>
             )}
             <p className="text-xs text-muted-foreground">
-              {t('fileUploadHint')}
+              {language === 'ru' 
+                ? 'Форматы: PDF, JPG, PNG, DOC, DOCX, XLS, XLSX. До 10 файлов, макс. 20 МБ каждый'
+                : 'Formats: PDF, JPG, PNG, DOC, DOCX, XLS, XLSX. Up to 10 files, max 20 MB each'}
             </p>
           </div>
         );
