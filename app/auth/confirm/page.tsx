@@ -1,34 +1,34 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import Script from 'next/script';
-import { Loader2, CheckCircle, XCircle } from 'lucide-react';
+import { Loader2, CheckCircle, XCircle, ArrowRight } from 'lucide-react';
 
 const WEBAPP_URL = process.env.NEXT_PUBLIC_WEBAPP_URL || 'https://svetlana-chepilka-main.vercel.app';
 
-// Safe Base64 encoding for Unicode strings
 const safeEncode = (str: string): string => {
   try {
     const utf8Bytes = new TextEncoder().encode(str);
     const binaryString = Array.from(utf8Bytes, byte => String.fromCharCode(byte)).join('');
     return btoa(binaryString);
   } catch (e) {
-    console.error('Encode error:', e);
     return '';
   }
 };
 
 export default function AuthConfirmPage() {
-  const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
+  const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [message, setMessage] = useState('Авторизация...');
   const [scriptLoaded, setScriptLoaded] = useState(false);
   const [userName, setUserName] = useState('');
+  const [redirectUrl, setRedirectUrl] = useState('');
+  const buttonRef = useRef<HTMLButtonElement>(null);
 
   const handleAuth = useCallback(() => {
     try {
       if (typeof window === 'undefined' || !window.Telegram?.WebApp) {
         setStatus('error');
-        setMessage('Telegram WebApp не доступен. Откройте через Telegram.');
+        setMessage('Откройте через Telegram.');
         return;
       }
 
@@ -39,74 +39,59 @@ export default function AuthConfirmPage() {
       const user = tg.initDataUnsafe?.user;
       if (!user || !user.id) {
         setStatus('error');
-        setMessage('Не удалось получить данные пользователя.');
+        setMessage('Не удалось получить данные.');
         return;
       }
 
-      const displayName = user.first_name + (user.last_name ? ' ' + user.last_name : '');
-      setUserName(displayName);
+      setUserName(user.first_name + (user.last_name ? ' ' + user.last_name : ''));
 
-      const userData = {
+      const encoded = safeEncode(JSON.stringify({
         id: user.id,
         first_name: user.first_name || '',
         last_name: user.last_name || '',
         username: user.username || '',
         auth_date: Math.floor(Date.now() / 1000),
-      };
+      }));
 
-      const encodedUser = safeEncode(JSON.stringify(userData));
-      if (!encodedUser) {
-        setStatus('error');
-        setMessage('Ошибка кодирования данных');
-        return;
+      if (!encoded) { setStatus('error'); setMessage('Ошибка'); return; }
+
+      let lang = 'ru', type = 'infant';
+      const sp = tg.initDataUnsafe?.start_param;
+      if (sp) {
+        const parts = sp.split('-');
+        if (parts.length >= 2) { lang = parts[0]; type = parts[1]; }
       }
 
-      // Decode startapp params: lang-type-timestamp
-      let returnLang = 'ru';
-      let returnType = 'infant';
-      const startParam = tg.initDataUnsafe?.start_param;
+      setRedirectUrl(`${WEBAPP_URL}/anketa?lang=${lang}&type=${type}&tg_user=${encoded}`);
+      setStatus('ready');
 
-      if (startParam) {
-        const parts = startParam.split('-');
-        if (parts.length >= 2) {
-          returnLang = parts[0] || 'ru';
-          returnType = parts[1] || 'infant';
-        }
-      }
-
-      const callbackUrl = `${WEBAPP_URL}/anketa?lang=${returnLang}&type=${returnType}&tg_user=${encodedUser}`;
-
-      // Show success
-      setStatus('success');
-      setMessage(`${displayName}, авторизация успешна!`);
-
-      // Auto-redirect after 1.5 seconds
-      setTimeout(() => {
-        try {
-          if (tg.openLink) {
-            tg.openLink(callbackUrl, { try_instant_view: false });
-          } else {
-            window.open(callbackUrl, '_blank');
-          }
-          // Close Mini App
-          setTimeout(() => { tg.close(); }, 1500);
-        } catch (e) {
-          console.error('Redirect error:', e);
-          window.open(callbackUrl, '_blank');
-        }
-      }, 1500);
-
-    } catch (error) {
-      console.error('Auth error:', error);
+      // Focus button for quick tap
+      setTimeout(() => buttonRef.current?.focus(), 100);
+    } catch {
       setStatus('error');
       setMessage('Произошла ошибка');
     }
   }, []);
 
+  const handleOpen = useCallback(() => {
+    if (!redirectUrl) return;
+    const tg = window.Telegram?.WebApp;
+    try {
+      if (tg?.openLink) {
+        tg.openLink(redirectUrl, { try_instant_view: false });
+      } else {
+        window.open(redirectUrl, '_blank');
+      }
+      setTimeout(() => { tg?.close(); }, 1500);
+    } catch {
+      window.location.href = redirectUrl;
+    }
+  }, [redirectUrl]);
+
   useEffect(() => {
     if (scriptLoaded) {
-      const timer = setTimeout(handleAuth, 300);
-      return () => clearTimeout(timer);
+      const t = setTimeout(handleAuth, 300);
+      return () => clearTimeout(t);
     }
   }, [scriptLoaded, handleAuth]);
 
@@ -116,26 +101,31 @@ export default function AuthConfirmPage() {
         src="https://telegram.org/js/telegram-web-app.js"
         strategy="afterInteractive"
         onLoad={() => setScriptLoaded(true)}
-        onError={() => { setStatus('error'); setMessage('Не удалось загрузить Telegram WebApp.'); }}
+        onError={() => { setStatus('error'); setMessage('Не удалось загрузить.'); }}
       />
-
       <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
 
           {status === 'loading' && (
             <>
               <Loader2 className="w-16 h-16 text-blue-500 animate-spin mx-auto mb-4" />
-              <h1 className="text-xl font-semibold text-gray-800 mb-2">Авторизация</h1>
-              <p className="text-gray-600">{message}</p>
+              <h1 className="text-xl font-semibold text-gray-800">Авторизация...</h1>
             </>
           )}
 
-          {status === 'success' && (
+          {status === 'ready' && (
             <>
-              <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
-              <h1 className="text-xl font-semibold text-gray-800 mb-2">Готово!</h1>
-              <p className="text-gray-600 mb-2">{message}</p>
-              <p className="text-sm text-gray-400">Открываю анкету в браузере...</p>
+              <CheckCircle className="w-20 h-20 text-green-500 mx-auto mb-4" />
+              <h1 className="text-2xl font-bold text-gray-800 mb-1">Добро пожаловать!</h1>
+              <p className="text-lg text-gray-600 mb-6">{userName}</p>
+              <button
+                ref={buttonRef}
+                onClick={handleOpen}
+                className="w-full px-6 py-4 bg-green-500 hover:bg-green-600 active:bg-green-700 rounded-2xl text-white font-bold transition-colors text-xl flex items-center justify-center gap-3 shadow-lg"
+              >
+                <span>Перейти к анкете</span>
+                <ArrowRight className="w-6 h-6" />
+              </button>
             </>
           )}
 
@@ -145,7 +135,7 @@ export default function AuthConfirmPage() {
               <h1 className="text-xl font-semibold text-gray-800 mb-2">Ошибка</h1>
               <p className="text-gray-600 mb-4">{message}</p>
               <div className="space-y-2">
-                <button onClick={() => { setStatus('loading'); setMessage('Авторизация...'); setTimeout(handleAuth, 300); }}
+                <button onClick={() => { setStatus('loading'); setTimeout(handleAuth, 300); }}
                   className="w-full px-6 py-2 bg-blue-500 hover:bg-blue-600 rounded-lg text-white transition-colors">
                   Попробовать снова
                 </button>
