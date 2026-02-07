@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import Script from 'next/script';
-import { Loader2, CheckCircle, XCircle } from 'lucide-react';
+import { Loader2, XCircle, UserCheck } from 'lucide-react';
 
 const WEBAPP_URL = process.env.NEXT_PUBLIC_WEBAPP_URL || 'https://svetlana-chepilka-main.vercel.app';
 
@@ -18,11 +18,12 @@ const safeEncode = (str: string): string => {
 
 export default function AuthConfirmPage() {
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
-  const [message, setMessage] = useState('Авторизация...');
+  const [message, setMessage] = useState('Загрузка...');
   const [scriptLoaded, setScriptLoaded] = useState(false);
   const [userName, setUserName] = useState('');
+  const [redirectUrl, setRedirectUrl] = useState('');
 
-  const handleAuth = useCallback(() => {
+  const prepareAuth = useCallback(() => {
     try {
       if (typeof window === 'undefined' || !window.Telegram?.WebApp) {
         setStatus('error');
@@ -60,35 +61,35 @@ export default function AuthConfirmPage() {
         if (parts.length >= 2) { lang = parts[0]; type = parts[1]; }
       }
 
-      const url = `${WEBAPP_URL}/anketa?lang=${lang}&type=${type}&tg_user=${encoded}`;
-
+      setRedirectUrl(`${WEBAPP_URL}/anketa?lang=${lang}&type=${type}&tg_user=${encoded}`);
       setStatus('ready');
-
-      // Setup Telegram native MainButton (big button at bottom of Mini App)
-      tg.MainButton.setText('Перейти к анкете →');
-      tg.MainButton.color = '#22c55e';
-      tg.MainButton.textColor = '#ffffff';
-      tg.MainButton.show();
-
-      // Handle MainButton click
-      tg.MainButton.onClick(() => {
-        tg.MainButton.hide();
-        tg.openLink(url, { try_instant_view: false });
-        setTimeout(() => tg.close(), 1500);
-      });
-
     } catch {
       setStatus('error');
       setMessage('Произошла ошибка');
     }
   }, []);
 
+  const handleConfirm = useCallback(() => {
+    if (!redirectUrl) return;
+    const tg = window.Telegram?.WebApp;
+    try {
+      if (tg?.openLink) {
+        tg.openLink(redirectUrl, { try_instant_view: false });
+      } else {
+        window.open(redirectUrl, '_blank');
+      }
+      setTimeout(() => { tg?.close(); }, 1500);
+    } catch {
+      window.open(redirectUrl, '_blank');
+    }
+  }, [redirectUrl]);
+
   useEffect(() => {
     if (scriptLoaded) {
-      const t = setTimeout(handleAuth, 300);
+      const t = setTimeout(prepareAuth, 300);
       return () => clearTimeout(t);
     }
-  }, [scriptLoaded, handleAuth]);
+  }, [scriptLoaded, prepareAuth]);
 
   return (
     <>
@@ -104,17 +105,22 @@ export default function AuthConfirmPage() {
           {status === 'loading' && (
             <>
               <Loader2 className="w-16 h-16 text-blue-500 animate-spin mx-auto mb-4" />
-              <h1 className="text-xl font-semibold text-gray-800">Авторизация...</h1>
+              <h1 className="text-xl font-semibold text-gray-800">Загрузка...</h1>
             </>
           )}
 
           {status === 'ready' && (
             <>
-              <CheckCircle className="w-20 h-20 text-green-500 mx-auto mb-4" />
-              <h1 className="text-2xl font-bold text-gray-800 mb-1">Добро пожаловать!</h1>
-              <p className="text-lg text-gray-600 mb-4">{userName}</p>
-              <p className="text-gray-500">Нажмите кнопку внизу для перехода к анкете</p>
-              <p className="text-sm text-gray-400 mt-1">↓</p>
+              <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <UserCheck className="w-10 h-10 text-blue-600" />
+              </div>
+              <p className="text-lg text-gray-600 mb-6">{userName}</p>
+              <button
+                onClick={handleConfirm}
+                className="w-full px-6 py-4 bg-[#0088cc] hover:bg-[#0077b5] active:bg-[#006699] rounded-2xl text-white font-bold transition-colors text-xl shadow-lg"
+              >
+                Авторизоваться
+              </button>
             </>
           )}
 
@@ -124,7 +130,7 @@ export default function AuthConfirmPage() {
               <h1 className="text-xl font-semibold text-gray-800 mb-2">Ошибка</h1>
               <p className="text-gray-600 mb-4">{message}</p>
               <div className="space-y-2">
-                <button onClick={() => { setStatus('loading'); setTimeout(handleAuth, 300); }}
+                <button onClick={() => { setStatus('loading'); setTimeout(prepareAuth, 300); }}
                   className="w-full px-6 py-2 bg-blue-500 hover:bg-blue-600 rounded-lg text-white transition-colors">
                   Попробовать снова
                 </button>
