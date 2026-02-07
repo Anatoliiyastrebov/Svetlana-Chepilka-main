@@ -61,28 +61,21 @@ export default function AuthConfirmPage() {
         return;
       }
 
-      // Decode startapp params: path|lang|type
-      let returnPath = '/anketa';
+      // Decode startapp params: lang-type-timestamp (e.g., "ru-adult-m4x7k2")
       let returnLang = 'ru';
       let returnType = 'infant';
       const startParam = tg.initDataUnsafe?.start_param;
 
       if (startParam) {
-        try {
-          // Remove timestamp suffix (after last _)
-          const cleanParam = startParam.includes('_') 
-            ? startParam.substring(0, startParam.lastIndexOf('_'))
-            : startParam;
-          const decoded = atob(cleanParam);
-          const [path, lang, type] = decoded.split('|');
-          if (path) returnPath = path;
-          if (lang) returnLang = lang;
-          if (type) returnType = type;
-        } catch {}
+        const parts = startParam.split('-');
+        if (parts.length >= 2) {
+          returnLang = parts[0] || 'ru';
+          returnType = parts[1] || 'infant';
+        }
       }
 
       // Build URL to the questionnaire with auth data
-      const url = `${WEBAPP_URL}${returnPath}?lang=${returnLang}&type=${returnType}&tg_user=${encodedUser}`;
+      const url = `${WEBAPP_URL}/anketa?lang=${returnLang}&type=${returnType}&tg_user=${encodedUser}`;
       setRedirectUrl(url);
       setStatus('ready');
     } catch (error) {

@@ -116,12 +116,11 @@ export const TelegramLoginButton: React.FC<TelegramLoginButtonProps> = ({
       const url = new URL(window.location.href);
       const lang = url.searchParams.get('lang') || 'ru';
       const type = url.searchParams.get('type') || 'infant';
-      const path = url.pathname || '/anketa';
-      const encoded = btoa(`${path}|${lang}|${type}`);
-
-      // Add timestamp to force Mini App to open fresh every time
+      
+      // startapp only allows: a-z, A-Z, 0-9, _, -  (max 64 chars)
+      // Format: lang-type-timestamp (e.g., "ru-adult-m4x7k2")
       const ts = Date.now().toString(36);
-      const startapp = `${encoded}_${ts}`;
+      const startapp = `${lang}-${type}-${ts}`;
       const telegramUrl = `https://t.me/${BOT_USERNAME}/${MINI_APP_NAME}?startapp=${startapp}`;
       
       // Open in new window — current page stays
