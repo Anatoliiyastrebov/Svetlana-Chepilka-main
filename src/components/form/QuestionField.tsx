@@ -143,7 +143,7 @@ export const QuestionField: React.FC<QuestionFieldProps> = ({
         const files = Array.isArray(value) && value.length > 0 && value[0] instanceof File 
           ? (value as File[]) 
           : [];
-        const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20 MB
+        const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 MB
         const MAX_FILES = 10;
         return (
           <div className="space-y-2">
@@ -169,8 +169,8 @@ export const QuestionField: React.FC<QuestionFieldProps> = ({
                 const oversized = selectedFiles.filter(f => f.size > MAX_FILE_SIZE);
                 if (oversized.length > 0) {
                   alert(language === 'ru' 
-                    ? `Файл "${oversized[0].name}" превышает 20 МБ` 
-                    : `File "${oversized[0].name}" exceeds 20 MB`);
+                    ? `Файл "${oversized[0].name}" превышает 50 МБ` 
+                    : `File "${oversized[0].name}" exceeds 50 MB`);
                   return;
                 }
                 
@@ -211,8 +211,8 @@ export const QuestionField: React.FC<QuestionFieldProps> = ({
             )}
             <p className="text-xs text-muted-foreground">
               {language === 'ru' 
-                ? 'Форматы: PDF, JPG, PNG, DOC, DOCX, XLS, XLSX. До 10 файлов, макс. 20 МБ каждый'
-                : 'Formats: PDF, JPG, PNG, DOC, DOCX, XLS, XLSX. Up to 10 files, max 20 MB each'}
+                ? 'PDF, JPG, PNG, DOC, DOCX, XLS, XLSX — макс. 50 МБ'
+                : 'PDF, JPG, PNG, DOC, DOCX, XLS, XLSX — max 50 MB'}
             </p>
           </div>
         );
