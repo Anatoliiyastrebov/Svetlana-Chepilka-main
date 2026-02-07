@@ -118,13 +118,24 @@ export const TelegramLoginButton: React.FC<TelegramLoginButtonProps> = ({
       const type = url.searchParams.get('type') || 'infant';
       
       // startapp only allows: a-z, A-Z, 0-9, _, -  (max 64 chars)
-      // Format: lang-type-timestamp (e.g., "ru-adult-m4x7k2")
       const ts = Date.now().toString(36);
       const startapp = `${lang}-${type}-${ts}`;
-      const telegramUrl = `https://t.me/${BOT_USERNAME}/${MINI_APP_NAME}?startapp=${startapp}`;
       
-      // Open in new window — current page stays
-      window.open(telegramUrl, '_blank');
+      // Use tg:// deep link to open Telegram directly (no intermediate browser tab)
+      const telegramUrl = `tg://resolve?domain=${BOT_USERNAME}&appname=${MINI_APP_NAME}&startapp=${startapp}`;
+      
+      // Fallback URL if tg:// doesn't work
+      const fallbackUrl = `https://t.me/${BOT_USERNAME}/${MINI_APP_NAME}?startapp=${startapp}`;
+      
+      // Try deep link first
+      window.location.href = telegramUrl;
+      
+      // If still on page after 1.5s, try fallback in new tab
+      setTimeout(() => {
+        if (document.hasFocus()) {
+          window.open(fallbackUrl, '_blank');
+        }
+      }, 1500);
 
       setTimeout(() => setIsLoading(false), 3000);
     } catch (error) {
