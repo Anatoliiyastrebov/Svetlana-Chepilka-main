@@ -119,7 +119,10 @@ export const TelegramLoginButton: React.FC<TelegramLoginButtonProps> = ({
       const path = url.pathname || '/anketa';
       const encoded = btoa(`${path}|${lang}|${type}`);
 
-      const telegramUrl = `https://t.me/${BOT_USERNAME}/${MINI_APP_NAME}?startapp=${encoded}`;
+      // Add timestamp to force Mini App to open fresh every time
+      const ts = Date.now().toString(36);
+      const startapp = `${encoded}_${ts}`;
+      const telegramUrl = `https://t.me/${BOT_USERNAME}/${MINI_APP_NAME}?startapp=${startapp}`;
       
       // Open in new window — current page stays
       window.open(telegramUrl, '_blank');

@@ -69,7 +69,11 @@ export default function AuthConfirmPage() {
 
       if (startParam) {
         try {
-          const decoded = atob(startParam);
+          // Remove timestamp suffix (after last _)
+          const cleanParam = startParam.includes('_') 
+            ? startParam.substring(0, startParam.lastIndexOf('_'))
+            : startParam;
+          const decoded = atob(cleanParam);
           const [path, lang, type] = decoded.split('|');
           if (path) returnPath = path;
           if (lang) returnLang = lang;
