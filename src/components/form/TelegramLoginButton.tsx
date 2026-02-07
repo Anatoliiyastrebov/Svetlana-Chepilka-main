@@ -270,14 +270,10 @@ export const TelegramLoginButton: React.FC<TelegramLoginButtonProps> = ({
           )}
           <button
             type="button"
-            onClick={() => {
-              handleLogout();
-              // Small delay then open login
-              setTimeout(handleTelegramLogin, 100);
-            }}
+            onClick={handleLogout}
             className="flex items-center justify-center gap-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 font-medium py-2.5 px-4 rounded-xl transition-colors text-sm"
-            title={language === 'ru' ? 'Сменить аккаунт' : 'Change account'}
-            aria-label={language === 'ru' ? 'Сменить аккаунт' : 'Change account'}
+            title={language === 'ru' ? 'Выйти' : 'Logout'}
+            aria-label={language === 'ru' ? 'Выйти' : 'Logout'}
           >
             <LogOut className="w-4 h-4" />
           </button>
