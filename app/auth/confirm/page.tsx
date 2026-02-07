@@ -11,7 +11,7 @@ const safeEncode = (str: string): string => {
     const utf8Bytes = new TextEncoder().encode(str);
     const binaryString = Array.from(utf8Bytes, byte => String.fromCharCode(byte)).join('');
     return btoa(binaryString);
-  } catch (e) {
+  } catch {
     return '';
   }
 };
@@ -22,7 +22,7 @@ export default function AuthConfirmPage() {
   const [scriptLoaded, setScriptLoaded] = useState(false);
   const [userName, setUserName] = useState('');
   const [redirectUrl, setRedirectUrl] = useState('');
-  const buttonRef = useRef<HTMLButtonElement>(null);
+  const linkRef = useRef<HTMLAnchorElement>(null);
 
   const handleAuth = useCallback(() => {
     try {
@@ -62,25 +62,28 @@ export default function AuthConfirmPage() {
         if (parts.length >= 2) { lang = parts[0]; type = parts[1]; }
       }
 
-      setRedirectUrl(`${WEBAPP_URL}/anketa?lang=${lang}&type=${type}&tg_user=${encoded}`);
+      const url = `${WEBAPP_URL}/anketa?lang=${lang}&type=${type}&tg_user=${encoded}`;
+      setRedirectUrl(url);
       setStatus('ready');
 
-      // Focus button for quick tap
-      setTimeout(() => buttonRef.current?.focus(), 100);
+      // Try auto-redirect: navigate the WebView to the URL
+      setTimeout(() => {
+        window.location.href = url;
+      }, 1500);
+
     } catch {
       setStatus('error');
       setMessage('Произошла ошибка');
     }
   }, []);
 
+  // Fallback: manual button click
   const handleOpen = useCallback(() => {
     if (!redirectUrl) return;
     const tg = window.Telegram?.WebApp;
     try {
       if (tg?.openLink) {
         tg.openLink(redirectUrl, { try_instant_view: false });
-      } else {
-        window.open(redirectUrl, '_blank');
       }
       setTimeout(() => { tg?.close(); }, 1500);
     } catch {
@@ -117,15 +120,21 @@ export default function AuthConfirmPage() {
             <>
               <CheckCircle className="w-20 h-20 text-green-500 mx-auto mb-4" />
               <h1 className="text-2xl font-bold text-gray-800 mb-1">Добро пожаловать!</h1>
-              <p className="text-lg text-gray-600 mb-6">{userName}</p>
+              <p className="text-lg text-gray-600 mb-2">{userName}</p>
+              <p className="text-sm text-gray-400 mb-6">Переход к анкете...</p>
+
+              {/* Hidden auto-redirect link */}
+              <a ref={linkRef} href={redirectUrl} target="_blank" rel="noopener noreferrer" className="hidden">redirect</a>
+
+              {/* Fallback button if auto-redirect didn't work */}
               <button
-                ref={buttonRef}
                 onClick={handleOpen}
                 className="w-full px-6 py-4 bg-green-500 hover:bg-green-600 active:bg-green-700 rounded-2xl text-white font-bold transition-colors text-xl flex items-center justify-center gap-3 shadow-lg"
               >
                 <span>Перейти к анкете</span>
                 <ArrowRight className="w-6 h-6" />
               </button>
+              <p className="text-xs text-gray-400 mt-3">Нажмите если переход не произошёл автоматически</p>
             </>
           )}
 
