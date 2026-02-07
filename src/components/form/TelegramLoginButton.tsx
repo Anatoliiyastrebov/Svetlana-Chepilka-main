@@ -184,20 +184,11 @@ export const TelegramLoginButton: React.FC<TelegramLoginButtonProps> = ({
             </div>
           </div>
         </div>
-        <div className="flex gap-2">
-          {profileLink && (
-            <a href={profileLink} target="_blank" rel="noopener noreferrer"
-              className="flex-1 flex items-center justify-center gap-2 bg-[#0088cc] hover:bg-[#0077b5] text-white font-medium py-2.5 px-4 rounded-xl transition-colors text-sm">
-              <ExternalLink className="w-4 h-4" />
-              {language === 'ru' ? 'Открыть профиль' : 'Open profile'}
-            </a>
-          )}
-          <button type="button" onClick={handleLogout}
-            className="flex items-center justify-center gap-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 font-medium py-2.5 px-4 rounded-xl transition-colors text-sm"
-            title={language === 'ru' ? 'Выйти' : 'Logout'}>
-            <LogOut className="w-4 h-4" />
-          </button>
-        </div>
+        <button type="button" onClick={handleLogout}
+          className="w-full flex items-center justify-center gap-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 font-medium py-2.5 px-4 rounded-xl transition-colors text-sm">
+          <LogOut className="w-4 h-4" />
+          {language === 'ru' ? 'Отменить' : 'Cancel'}
+        </button>
       </div>
     );
   }
