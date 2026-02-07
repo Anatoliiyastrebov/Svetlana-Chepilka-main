@@ -1,29 +1,14 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useSearchParams } from 'next/navigation';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { MessageCircle, CheckCircle, ExternalLink, Loader2, LogIn, LogOut } from 'lucide-react';
 import { TelegramUserData } from '@/lib/form-utils';
 
-// Re-export for convenience
 export type TelegramUser = TelegramUserData;
 
-// Environment variables
 const BOT_USERNAME = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || 'SvetlanaChepilkaBot';
 const MINI_APP_NAME = process.env.NEXT_PUBLIC_TELEGRAM_MINI_APP_NAME || 'SvetlanaAuth';
-
-// Safe Base64 encoding for Unicode strings
-const safeEncode = (str: string): string => {
-  try {
-    const utf8Bytes = new TextEncoder().encode(str);
-    const binaryString = Array.from(utf8Bytes, byte => String.fromCharCode(byte)).join('');
-    return btoa(binaryString);
-  } catch (e) {
-    console.error('Encode error:', e);
-    return '';
-  }
-};
 
 // Safe Base64 decoding for Unicode strings
 const safeDecode = (str: string): string => {
@@ -43,38 +28,21 @@ const safeDecode = (str: string): string => {
 // Safe localStorage wrapper
 const safeStorage = {
   get: (key: string): string | null => {
-    try {
-      return localStorage.getItem(key);
-    } catch {
-      return null;
-    }
+    try { return localStorage.getItem(key); } catch { return null; }
   },
   set: (key: string, value: string): boolean => {
-    try {
-      localStorage.setItem(key, value);
-      return true;
-    } catch {
-      return false;
-    }
+    try { localStorage.setItem(key, value); return true; } catch { return false; }
   },
   remove: (key: string): void => {
-    try {
-      localStorage.removeItem(key);
-    } catch {
-      // Ignore errors
-    }
+    try { localStorage.removeItem(key); } catch { /* ignore */ }
   },
 };
 
-// Validate user data structure
+// Validate user data
 const isValidUserData = (data: unknown): data is TelegramUser => {
   if (!data || typeof data !== 'object') return false;
   const user = data as Record<string, unknown>;
-  return (
-    typeof user.id === 'number' &&
-    typeof user.first_name === 'string' &&
-    user.first_name.length > 0
-  );
+  return typeof user.id === 'number' && typeof user.first_name === 'string' && user.first_name.length > 0;
 };
 
 interface TelegramLoginButtonProps {
@@ -92,28 +60,17 @@ export const TelegramLoginButton: React.FC<TelegramLoginButtonProps> = ({
   error,
 }) => {
   const { language } = useLanguage();
-  const searchParams = useSearchParams();
   const [isLoading, setIsLoading] = useState(false);
-  const [authChecked, setAuthChecked] = useState(false);
 
-  // Handle tg_user from URL (after Telegram redirect)
-  const handleTgUser = useCallback((encodedUser: string) => {
-    if (telegramUser) return;
-    
-    setIsLoading(true);
+  // Process encoded user data from auth callback
+  const processAuthData = useCallback((encodedUser: string) => {
     try {
       const decoded = safeDecode(encodedUser);
-      if (!decoded) {
-        throw new Error('Failed to decode user data');
-      }
-      
+      if (!decoded) return;
+
       const decodedData = JSON.parse(decoded);
-      
-      // Validate decoded data
-      if (!isValidUserData(decodedData)) {
-        throw new Error('Invalid user data structure');
-      }
-      
+      if (!isValidUserData(decodedData)) return;
+
       const userData: TelegramUser = {
         id: decodedData.id,
         first_name: decodedData.first_name,
@@ -122,37 +79,50 @@ export const TelegramLoginButton: React.FC<TelegramLoginButtonProps> = ({
         auth_date: decodedData.auth_date || Math.floor(Date.now() / 1000),
         hash: decodedData.hash || '',
       };
-      
+
       onAuth(userData);
       safeStorage.set('telegram_user', JSON.stringify(userData));
-      
-      // Clean up URL without triggering navigation
-      if (typeof window !== 'undefined') {
-        const url = new URL(window.location.href);
-        url.searchParams.delete('tg_user');
-        window.history.replaceState(null, '', url.toString());
-      }
-    } catch (error) {
-      console.error('Error decoding user data:', error);
-    } finally {
       setIsLoading(false);
-      setAuthChecked(true);
+    } catch (error) {
+      console.error('Error processing auth data:', error);
+      setIsLoading(false);
     }
-  }, [telegramUser, onAuth]);
+  }, [onAuth]);
 
-  // Check for tg_user in URL on mount
+  // Listen for auth data from callback page (via localStorage 'storage' event)
   useEffect(() => {
-    const tgUser = searchParams.get('tg_user');
-    if (tgUser && !telegramUser && !authChecked) {
-      handleTgUser(tgUser);
-    } else if (!authChecked) {
-      setAuthChecked(true);
-    }
-  }, [searchParams, telegramUser, authChecked, handleTgUser]);
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'telegram_auth_data' && e.newValue && !telegramUser) {
+        processAuthData(e.newValue);
+        // Clean up
+        safeStorage.remove('telegram_auth_data');
+        safeStorage.remove('telegram_auth_timestamp');
+      }
+    };
 
-  // Check localStorage for saved user on mount (only once)
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, [telegramUser, processAuthData]);
+
+  // Also poll localStorage in case storage event doesn't fire (same tab)
   useEffect(() => {
-    if (!telegramUser && authChecked) {
+    if (!isLoading || telegramUser) return;
+
+    const interval = setInterval(() => {
+      const authData = safeStorage.get('telegram_auth_data');
+      if (authData) {
+        processAuthData(authData);
+        safeStorage.remove('telegram_auth_data');
+        safeStorage.remove('telegram_auth_timestamp');
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [isLoading, telegramUser, processAuthData]);
+
+  // Check localStorage for saved user on mount
+  useEffect(() => {
+    if (!telegramUser) {
       const savedUser = safeStorage.get('telegram_user');
       if (savedUser) {
         try {
@@ -167,40 +137,22 @@ export const TelegramLoginButton: React.FC<TelegramLoginButtonProps> = ({
         }
       }
     }
-  }, [telegramUser, authChecked, onAuth]);
+  }, [telegramUser, onAuth]);
 
-  // Handle Telegram login button click
+  // Open Telegram in new window — current page stays open
   const handleTelegramLogin = useCallback(() => {
     setIsLoading(true);
-    
+
     try {
-      // Extract essential params - startapp has 64 char limit
-      const url = new URL(window.location.href);
-      const lang = url.searchParams.get('lang') || 'ru';
-      const type = url.searchParams.get('type') || 'infant';
-      const path = url.pathname || '/anketa';
+      const telegramUrl = `https://t.me/${BOT_USERNAME}/${MINI_APP_NAME}`;
       
-      // Create short param string: path|lang|type (e.g., "/anketa|ru|adult")
-      const params = `${path}|${lang}|${type}`;
-      const encoded = btoa(params);
-      
-      // Build Telegram Mini App URL
-      const telegramUrl = `https://t.me/${BOT_USERNAME}/${MINI_APP_NAME}?startapp=${encoded}`;
-      
-      console.log('Opening Mini App:', telegramUrl);
-      
-      // Navigate to Telegram
-      window.location.href = telegramUrl;
-      
-      // Fallback after 2 seconds if still on page
-      setTimeout(() => {
-        if (document.hasFocus()) {
-          window.open(telegramUrl, '_blank');
-        }
-        setIsLoading(false);
-      }, 2000);
+      // Open in new window/tab — current page stays intact
+      window.open(telegramUrl, '_blank');
+
+      // Stop loading after 60 seconds (timeout)
+      setTimeout(() => setIsLoading(false), 60000);
     } catch (error) {
-      console.error('Error during login redirect:', error);
+      console.error('Error opening Telegram:', error);
       setIsLoading(false);
     }
   }, []);
@@ -208,17 +160,14 @@ export const TelegramLoginButton: React.FC<TelegramLoginButtonProps> = ({
   // Handle logout
   const handleLogout = useCallback(() => {
     safeStorage.remove('telegram_user');
+    safeStorage.remove('telegram_auth_data');
     onLogout?.();
   }, [onLogout]);
 
   // Memoized profile link
   const profileLink = useMemo((): string => {
-    if (telegramUser?.username) {
-      return `https://t.me/${telegramUser.username}`;
-    }
-    if (telegramUser?.id && telegramUser.id !== 0) {
-      return `tg://user?id=${telegramUser.id}`;
-    }
+    if (telegramUser?.username) return `https://t.me/${telegramUser.username}`;
+    if (telegramUser?.id && telegramUser.id !== 0) return `tg://user?id=${telegramUser.id}`;
     return '';
   }, [telegramUser]);
 
@@ -226,9 +175,7 @@ export const TelegramLoginButton: React.FC<TelegramLoginButtonProps> = ({
   const displayName = useMemo((): string => {
     if (!telegramUser) return '';
     if (telegramUser.username) return `@${telegramUser.username}`;
-    const fullName = [telegramUser.first_name, telegramUser.last_name]
-      .filter(Boolean)
-      .join(' ');
+    const fullName = [telegramUser.first_name, telegramUser.last_name].filter(Boolean).join(' ');
     return fullName || 'Telegram User';
   }, [telegramUser]);
 
@@ -241,7 +188,7 @@ export const TelegramLoginButton: React.FC<TelegramLoginButtonProps> = ({
           <span className="text-sm font-medium text-foreground">Telegram</span>
           <span className="text-destructive">*</span>
         </div>
-        
+
         <div className="bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-xl p-4">
           <div className="flex items-center gap-3">
             <CheckCircle className="w-6 h-6 text-green-600 flex-shrink-0" />
@@ -255,7 +202,7 @@ export const TelegramLoginButton: React.FC<TelegramLoginButtonProps> = ({
             </div>
           </div>
         </div>
-        
+
         <div className="flex gap-2">
           {profileLink && (
             <a
@@ -304,16 +251,26 @@ export const TelegramLoginButton: React.FC<TelegramLoginButtonProps> = ({
         )}
         <span>
           {isLoading
-            ? (language === 'ru' ? 'Загрузка...' : 'Loading...')
+            ? (language === 'ru' ? 'Ожидание авторизации...' : 'Waiting for authorization...')
             : (language === 'ru' ? 'Войти через Telegram' : 'Login with Telegram')}
         </span>
       </button>
 
-      <p className="text-xs text-muted-foreground text-center">
-        {language === 'ru'
-          ? 'Нажмите кнопку, чтобы авторизоваться через Telegram'
-          : 'Click the button to authorize via Telegram'}
-      </p>
+      {isLoading && (
+        <p className="text-xs text-muted-foreground text-center">
+          {language === 'ru'
+            ? 'Подтвердите авторизацию в Telegram и вернитесь сюда'
+            : 'Confirm authorization in Telegram and come back here'}
+        </p>
+      )}
+
+      {!isLoading && (
+        <p className="text-xs text-muted-foreground text-center">
+          {language === 'ru'
+            ? 'Откроется Telegram для авторизации'
+            : 'Telegram will open for authorization'}
+        </p>
+      )}
 
       {error && (
         <p className="text-sm text-destructive text-center" role="alert">
