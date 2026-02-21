@@ -56,10 +56,10 @@ export const TelegramUsernameField: React.FC<TelegramUsernameFieldProps> = memo(
         setVerifyMessage(language === 'ru' ? 'Пользователь найден' : 'User found');
       } else if (data.warning) {
         setVerifyStatus('warning');
-        setVerifyMessage(data.message || (language === 'ru' ? 'Не удалось проверить username' : 'Could not verify username'));
+        setVerifyMessage(language === 'ru' ? 'Убедитесь, что username указан верно' : 'Make sure the username is correct');
       } else {
-        setVerifyStatus('invalid');
-        setVerifyMessage(data.message || (language === 'ru' ? 'Пользователь не найден' : 'User not found'));
+        setVerifyStatus('warning');
+        setVerifyMessage(language === 'ru' ? 'Убедитесь, что username указан верно' : 'Make sure the username is correct');
       }
     } catch (err: unknown) {
       if (err instanceof Error && err.name === 'AbortError') return;

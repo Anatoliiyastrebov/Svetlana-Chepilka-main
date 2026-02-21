@@ -73,15 +73,12 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ exists: true });
       }
 
-      if (data.description?.includes('chat not found')) {
-        return NextResponse.json({ exists: false, message: 'User not found' });
-      }
-
-      // Bot may not have access, but username could still exist
+      // getChat can only find users who interacted with the bot,
+      // so "chat not found" does NOT mean the user doesn't exist
       return NextResponse.json({
         exists: false,
         warning: true,
-        message: 'Could not verify — username may still be valid',
+        message: 'Username not verified — make sure it is correct',
       });
     } catch (err: unknown) {
       clearTimeout(timeoutId);
