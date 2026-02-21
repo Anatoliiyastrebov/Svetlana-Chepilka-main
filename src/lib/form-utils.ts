@@ -72,19 +72,8 @@ export interface FormAdditionalData {
   [key: string]: string;
 }
 
-export interface TelegramUserData {
-  id: number;
-  first_name: string;
-  last_name?: string;
-  username?: string;
-  photo_url?: string;
-  auth_date: number;
-  hash: string;
-}
-
 export interface ContactData {
   telegram?: string;
-  telegramUser?: TelegramUserData;
   instagram?: string;
   phone?: string;
 }
@@ -258,6 +247,15 @@ export const validateForm = (
         return;
       }
       if (question.id === 'attach_files' && formData['has_tests_or_ultrasound'] !== 'yes') {
+        return;
+      }
+      if (question.id === 'covid_times' && formData['covid_had'] !== 'yes') {
+        return;
+      }
+      if (question.id === 'covid_doses' && formData['covid_vaccinated'] !== 'yes') {
+        return;
+      }
+      if (question.id === 'covid_complications' && formData['covid_had'] !== 'yes' && formData['covid_vaccinated'] !== 'yes') {
         return;
       }
 
@@ -442,16 +440,35 @@ export const validateForm = (
     }
   }
 
-  // Validate contact - Telegram login is required
-  const hasTelegramUser = !!contactData.telegramUser;
-  
-  if (!hasTelegramUser) {
+  // Validate contact: at least one of telegram or instagram required
+  const cleanTg = (contactData.telegram || '').replace(/^@/, '').trim();
+  const cleanIg = (contactData.instagram || '').replace(/^@/, '').trim();
+  const hasTelegram = cleanTg.length >= 5 && /^[a-zA-Z0-9_]{5,32}$/.test(cleanTg);
+  const hasInstagram = cleanIg.length > 0;
+
+  if (!hasTelegram && !hasInstagram) {
     errors['contact_method'] = lang === 'ru' 
-      ? 'Необходимо авторизоваться через Telegram' 
-      : 'You must log in via Telegram';
+      ? 'Укажите Telegram username или Instagram' 
+      : 'Please provide Telegram username or Instagram';
+  }
+
+  if (cleanTg.length > 0 && !hasTelegram) {
+    errors['contact_telegram'] = lang === 'ru'
+      ? 'Неверный формат Telegram username (5–32 символа, латиница, цифры, _)'
+      : 'Invalid Telegram username (5-32 chars, latin, digits, _)';
   }
 
   return errors;
+};
+
+// Escape special characters for HTML (Telegram supports HTML parse mode)
+const escapeHtml = (text: string): string => {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 };
 
 // Generate Markdown
@@ -469,16 +486,6 @@ export const generateMarkdown = (
     child: t.mdChild,
     woman: t.mdWoman,
     man: t.mdMan,
-  };
-
-  // Escape special characters for HTML (Telegram supports HTML parse mode)
-  const escapeHtml = (text: string): string => {
-    return text
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
   };
 
   // Start with header
@@ -509,6 +516,9 @@ export const generateMarkdown = (
     // Determine if this section has only one question with generic/matching label
     const answeredQuestions = section.questions.filter((q) => {
       if (q.id === 'attach_files' && formData['has_tests_or_ultrasound'] !== 'yes') return false;
+      if (q.id === 'covid_times' && formData['covid_had'] !== 'yes') return false;
+      if (q.id === 'covid_doses' && formData['covid_vaccinated'] !== 'yes') return false;
+      if (q.id === 'covid_complications' && formData['covid_had'] !== 'yes' && formData['covid_vaccinated'] !== 'yes') return false;
       const v = formData[q.id];
       return v && (Array.isArray(v) ? v.length > 0 : (typeof v === 'string' && v.trim() !== ''));
     });
@@ -552,6 +562,15 @@ export const generateMarkdown = (
         if (question.id === 'attach_files' && formData['has_tests_or_ultrasound'] !== 'yes') {
           return;
         }
+        if (question.id === 'covid_times' && formData['covid_had'] !== 'yes') {
+          return;
+        }
+        if (question.id === 'covid_doses' && formData['covid_vaccinated'] !== 'yes') {
+          return;
+        }
+        if (question.id === 'covid_complications' && formData['covid_had'] !== 'yes' && formData['covid_vaccinated'] !== 'yes') {
+          return;
+        }
         const value = formData[question.id];
         const additional = additionalData[`${question.id}_additional`];
 
@@ -561,7 +580,14 @@ export const generateMarkdown = (
           // Format answer
           let answerText = '';
           if (question.type === 'file') {
-            answerText = String(value);
+            // Show count of attached files instead of listing names
+            const fileNames = String(value).split(',').filter(s => s.trim() !== '');
+            const count = fileNames.length;
+            if (lang === 'ru') {
+              answerText = `Прикреплено файлов: ${count}`;
+            } else {
+              answerText = `Attached files: ${count}`;
+            }
           } else if (Array.isArray(value)) {
             const optionLabels = value.map((v) => {
               const opt = question.options?.find((o) => o.value === v);
@@ -610,33 +636,11 @@ export const generateMarkdown = (
   // Contact section
   const contacts: string[] = [];
   
-  // Telegram user (from Telegram authorization)
-  if (contactData.telegramUser) {
-    const user = contactData.telegramUser;
-    const profileLink = user.username 
-      ? `https://t.me/${user.username}` 
-      : `tg://user?id=${user.id}`;
-    const openProfileLabel = lang === 'ru' ? 'Открыть профиль' : 'Open profile';
-    
-    // Build contact info
-    const fullName = [user.first_name, user.last_name].filter(Boolean).join(' ');
-    let telegramInfo = '';
-    if (user.username) {
-      telegramInfo = `Telegram: @${escapeHtml(user.username)}`;
-    } else {
-      telegramInfo = `Telegram: ${escapeHtml(fullName || 'User')}`;
-    }
-    if (user.id && user.id !== 0) {
-      telegramInfo += `\nID: ${user.id}`;
-    }
-    telegramInfo += `\n\n<a href="${profileLink}">👤 ${openProfileLabel}</a>`;
-    
-    contacts.push(telegramInfo);
-  } else if (contactData.telegram && contactData.telegram.trim() !== '') {
-    // Fallback to manual input
+  if (contactData.telegram && contactData.telegram.trim() !== '') {
     const cleanTelegram = contactData.telegram.replace(/^@/, '').trim();
     const telegramLink = `https://t.me/${cleanTelegram}`;
-    contacts.push(`Telegram: @${escapeHtml(cleanTelegram)}\n<a href="${telegramLink}">${escapeHtml(telegramLink)}</a>`);
+    const openProfileLabel = lang === 'ru' ? 'Открыть профиль' : 'Open profile';
+    contacts.push(`Telegram: @${escapeHtml(cleanTelegram)}\n<a href="${telegramLink}">👤 ${openProfileLabel}</a>`);
   }
   
   if (contactData.instagram && contactData.instagram.trim() !== '') {

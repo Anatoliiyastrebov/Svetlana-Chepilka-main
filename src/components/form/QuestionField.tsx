@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useCallback, useMemo, useRef, memo } from 'react';
 import { Question } from '@/lib/questionnaire-data';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { SectionIcon } from '@/components/icons/SectionIcons';
@@ -15,7 +15,7 @@ interface QuestionFieldProps {
   onAdditionalChange: (value: string) => void;
 }
 
-export const QuestionField: React.FC<QuestionFieldProps> = ({
+export const QuestionField: React.FC<QuestionFieldProps> = memo(({
   question,
   value,
   additionalValue,
@@ -25,9 +25,9 @@ export const QuestionField: React.FC<QuestionFieldProps> = ({
   onAdditionalChange,
 }) => {
   const { language, t } = useLanguage();
-  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleCheckboxChange = (optionValue: string, checked: boolean) => {
+  const handleCheckboxChange = useCallback((optionValue: string, checked: boolean) => {
     const currentValues = (Array.isArray(value) ? value : []) as string[];
     
     // Special handling for "no_issues" option
@@ -49,7 +49,7 @@ export const QuestionField: React.FC<QuestionFieldProps> = ({
       onChange(currentValues.filter((v) => v !== optionValue));
       }
     }
-  };
+  }, [value, onChange]);
 
   const renderInput = () => {
     switch (question.type) {
@@ -250,7 +250,7 @@ export const QuestionField: React.FC<QuestionFieldProps> = ({
           return currentValues.includes('diabetes_stage');
         }
         // Special handling for yes/no questions - show additional when "yes" is selected
-        const yesNoQuestions = ['operations', 'serious_injuries', 'pregnancy_problems'];
+        const yesNoQuestions = ['pregnancy_problems'];
         if (yesNoQuestions.includes(question.id)) {
           return value === 'yes';
         }
@@ -258,9 +258,21 @@ export const QuestionField: React.FC<QuestionFieldProps> = ({
         if (question.type === 'radio') {
           return value === 'other';
         }
-        // For checkbox questions, show only if "other" is selected
+        // For checkbox questions with detail-requiring options
         if (question.type === 'checkbox') {
           const currentValues = (Array.isArray(value) ? value : []) as string[];
+          // operations_traumas_status: show when any detail-requiring option is selected
+          if (question.id === 'operations_traumas_status') {
+            return currentValues.some(v => ['had_operations', 'organs_removed', 'had_injuries', 'other'].includes(v));
+          }
+          // gallbladder_kidneys_status: show when stones or other is selected
+          if (question.id === 'gallbladder_kidneys_status') {
+            return currentValues.some(v => ['gallbladder_stones', 'kidney_stones', 'other'].includes(v));
+          }
+          // joints_spine_problems: show when arthrosis, hernia or other is selected
+          if (question.id === 'joints_spine_problems') {
+            return currentValues.some(v => ['arthrosis', 'other'].includes(v));
+          }
           return currentValues.includes('other');
         }
         // For other types (text, number, textarea), don't show additional
@@ -272,6 +284,12 @@ export const QuestionField: React.FC<QuestionFieldProps> = ({
               ? (language === 'ru' ? 'Укажите имя и фамилию' : 'Specify first and last name')
               : question.id === 'diabetes'
               ? (language === 'ru' ? 'Укажите стадию' : 'Specify stage')
+              : question.id === 'operations_traumas_status'
+              ? (language === 'ru' ? 'Опишите подробнее' : 'Describe in detail')
+              : question.id === 'gallbladder_kidneys_status'
+              ? (language === 'ru' ? 'Дополнительная информация' : 'Additional information')
+              : question.id === 'joints_spine_problems'
+              ? (language === 'ru' ? 'Уточните подробности' : 'Specify details')
               : t('additionalInfo')}
             {additionalError && <span className="text-destructive ml-1">*</span>}
           </label>
@@ -284,6 +302,12 @@ export const QuestionField: React.FC<QuestionFieldProps> = ({
                 ? (language === 'ru' ? 'Имя и фамилия' : 'First and last name')
                 : question.id === 'diabetes'
                 ? (language === 'ru' ? 'Укажите стадию' : 'Specify stage')
+                : question.id === 'operations_traumas_status'
+                ? (language === 'ru' ? 'Какие операции, удалённые органы, травмы' : 'Which operations, removed organs, injuries')
+                : question.id === 'gallbladder_kidneys_status'
+                ? (language === 'ru' ? 'Опишите подробнее (размер, диагноз и т.д.)' : 'Describe in detail (size, diagnosis, etc.)')
+                : question.id === 'joints_spine_problems'
+                ? (language === 'ru' ? 'Стадия артроза, локализация и т.д.' : 'Arthrosis stage, location, etc.')
                 : t('additionalInfo')
             }
           />
@@ -297,7 +321,9 @@ export const QuestionField: React.FC<QuestionFieldProps> = ({
       )}
     </div>
   );
-};
+});
+
+QuestionField.displayName = 'QuestionField';
 
 const AlertCircleIcon = () => (
   <svg

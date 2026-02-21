@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, memo } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { ShieldCheck } from 'lucide-react';
 import { PrivacyPolicyDialog } from './PrivacyPolicyDialog';
@@ -10,7 +10,7 @@ interface DSGVOCheckboxProps {
   onChange: (checked: boolean) => void;
 }
 
-export const DSGVOCheckbox: React.FC<DSGVOCheckboxProps> = ({ checked, onChange }) => {
+export const DSGVOCheckbox: React.FC<DSGVOCheckboxProps> = memo(({ checked, onChange }) => {
   const { t, language } = useLanguage();
   const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false);
 
@@ -74,4 +74,6 @@ export const DSGVOCheckbox: React.FC<DSGVOCheckboxProps> = ({ checked, onChange 
       <PrivacyPolicyDialog open={showPrivacyPolicy} onOpenChange={setShowPrivacyPolicy} />
     </>
   );
-};
+});
+
+DSGVOCheckbox.displayName = 'DSGVOCheckbox';

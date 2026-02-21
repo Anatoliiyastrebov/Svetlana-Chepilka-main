@@ -1,9 +1,9 @@
 'use client';
 
-import React from 'react';
+import React, { memo, useMemo } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { MessageCircle, Instagram, Phone, ExternalLink } from 'lucide-react';
-import { TelegramLoginButton, TelegramUser } from './TelegramLoginButton';
+import { TelegramUsernameField } from './TelegramUsernameField';
 
 interface ContactSectionProps {
   contactData: {
@@ -11,37 +11,28 @@ interface ContactSectionProps {
     instagram?: string;
     phone?: string;
   };
-  telegramUser?: TelegramUser | null;
   errors?: {
     telegram?: string;
     instagram?: string;
     phone?: string;
     contact_method?: string;
   };
-  onTelegramAuth: (user: TelegramUser) => void;
-  onTelegramLogout?: () => void;
+  onTelegramChange: (value: string) => void;
   onInstagramChange: (value: string) => void;
   onPhoneChange: (value: string) => void;
 }
 
-// Get bot username from environment variable
-const BOT_USERNAME = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || 'your_bot_username';
-
-export const ContactSection: React.FC<ContactSectionProps> = ({
+export const ContactSection: React.FC<ContactSectionProps> = memo(({
   contactData,
-  telegramUser,
   errors = {},
-  onTelegramAuth,
-  onTelegramLogout,
+  onTelegramChange,
   onInstagramChange,
   onPhoneChange,
 }) => {
   const { t, language } = useLanguage();
 
-  const cleanInstagram = (contactData.instagram || '').replace(/^@/, '').trim();
-  const cleanPhone = (contactData.phone || '').trim();
-
-  const instagramLink = cleanInstagram ? `https://instagram.com/${cleanInstagram}` : '';
+  const cleanInstagram = useMemo(() => (contactData.instagram || '').replace(/^@/, '').trim(), [contactData.instagram]);
+  const instagramLink = useMemo(() => cleanInstagram ? `https://instagram.com/${cleanInstagram}` : '', [cleanInstagram]);
 
   return (
     <div className="card-wellness space-y-6">
@@ -50,6 +41,12 @@ export const ContactSection: React.FC<ContactSectionProps> = ({
         {t('contactMethod')}
       </h3>
 
+      <p className="text-sm text-muted-foreground">
+        {language === 'ru'
+          ? 'Укажите хотя бы один способ связи: Telegram или Instagram'
+          : 'Please provide at least one contact method: Telegram or Instagram'}
+      </p>
+
       {errors.contact_method && (
         <p className="error-message">
           <AlertCircleIcon />
@@ -57,26 +54,17 @@ export const ContactSection: React.FC<ContactSectionProps> = ({
         </p>
       )}
 
-      {/* Telegram Login */}
-      <div className="bg-accent/30 rounded-xl p-4 border border-border">
-        <TelegramLoginButton
-          botUsername={BOT_USERNAME}
-          onAuth={onTelegramAuth}
-          onLogout={onTelegramLogout}
-          telegramUser={telegramUser}
+      {/* Telegram username */}
+      <div>
+        <label className="text-sm font-medium text-foreground mb-1 block flex items-center gap-2">
+          <MessageCircle className="w-4 h-4 text-primary" />
+          Telegram
+        </label>
+        <TelegramUsernameField
+          value={contactData.telegram || ''}
+          onChange={onTelegramChange}
           error={errors.telegram}
         />
-      </div>
-
-      <div className="relative">
-        <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-border"></div>
-        </div>
-        <div className="relative flex justify-center text-xs uppercase">
-          <span className="bg-card px-2 text-muted-foreground">
-            {language === 'ru' ? 'или дополнительно' : 'or additionally'}
-          </span>
-        </div>
       </div>
 
       {/* Instagram */}
@@ -119,6 +107,9 @@ export const ContactSection: React.FC<ContactSectionProps> = ({
         <label className="text-sm font-medium text-foreground mb-1 block flex items-center gap-2">
           <Phone className="w-4 h-4 text-primary" />
           {t('phone')}
+          <span className="text-xs text-muted-foreground font-normal">
+            ({language === 'ru' ? 'необязательно' : 'optional'})
+          </span>
         </label>
         <input
           type="tel"
@@ -136,7 +127,9 @@ export const ContactSection: React.FC<ContactSectionProps> = ({
       </div>
     </div>
   );
-};
+});
+
+ContactSection.displayName = 'ContactSection';
 
 const AlertCircleIcon = () => (
   <svg
