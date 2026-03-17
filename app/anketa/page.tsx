@@ -358,6 +358,12 @@ export default function AnketaPage() {
 
   const handlePhoneChange = useCallback((value: string) => {
     setContactData((prev) => ({ ...prev, phone: value }));
+    setErrors((prev) => {
+      const newErrors = { ...prev };
+      delete newErrors['contact_method'];
+      delete newErrors['contact_phone'];
+      return newErrors;
+    });
   }, []);
 
   const handleTogglePreview = useCallback(() => setShowPreview(true), []);

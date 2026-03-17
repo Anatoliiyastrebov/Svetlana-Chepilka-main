@@ -43,8 +43,8 @@ export const ContactSection: React.FC<ContactSectionProps> = memo(({
 
       <p className="text-sm text-muted-foreground">
         {language === 'ru'
-          ? 'Укажите хотя бы один способ связи: Telegram или Instagram'
-          : 'Please provide at least one contact method: Telegram or Instagram'}
+          ? 'Укажите хотя бы один способ связи: Telegram, Instagram или Телефон'
+          : 'Please provide at least one contact method: Telegram, Instagram, or Phone'}
       </p>
 
       {errors.contact_method && (

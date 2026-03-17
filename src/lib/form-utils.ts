@@ -440,16 +440,18 @@ export const validateForm = (
     }
   }
 
-  // Validate contact: at least one of telegram or instagram required
+  // Validate contact: at least one contact method is required
   const cleanTg = (contactData.telegram || '').replace(/^@/, '').trim();
   const cleanIg = (contactData.instagram || '').replace(/^@/, '').trim();
+  const cleanPhone = (contactData.phone || '').trim();
   const hasTelegram = cleanTg.length >= 5 && /^[a-zA-Z0-9_]{5,32}$/.test(cleanTg);
   const hasInstagram = cleanIg.length > 0;
+  const hasPhone = cleanPhone.length > 0;
 
-  if (!hasTelegram && !hasInstagram) {
+  if (!hasTelegram && !hasInstagram && !hasPhone) {
     errors['contact_method'] = lang === 'ru' 
-      ? 'Укажите Telegram username или Instagram' 
-      : 'Please provide Telegram username or Instagram';
+      ? 'Укажите хотя бы один способ связи'
+      : 'Please provide at least one contact method.';
   }
 
   if (cleanTg.length > 0 && !hasTelegram) {
