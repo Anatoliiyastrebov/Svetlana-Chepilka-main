@@ -186,12 +186,21 @@ export const translations = {
     selectAtLeastOne: 'Выберите хотя бы один вариант',
     submitError: 'Ошибка при отправке. Попробуйте позже.',
     
-    // Markdown headers
+    // Markdown headers (Telegram message layout)
     mdInfant: '👶 Анкета для младенца',
     mdChild: '🧒 Детская анкета',
     mdWoman: '🌸 Женская анкета',
     mdMan: '👨 Мужская анкета',
     mdContacts: '📞 Контакты',
+    mdInfantPlain: 'Анкета для младенца',
+    mdChildPlain: 'Детская анкета',
+    mdWomanPlain: 'Женская анкета',
+    mdManPlain: 'Мужская анкета',
+    mdNewQuestionnaire: '📋 Новая анкета:',
+    mdDateLabel: '📅 Дата:',
+    mdMainInfo: '👤 Основная информация:',
+    mdContactsDetailed: '📞 Контактные данные для связи:',
+    mdFilledViaWebsite: 'Анкета заполнена через сайт',
     
     // File upload
     selectFiles: 'Выбрать файлы',
@@ -385,12 +394,21 @@ export const translations = {
     selectAtLeastOne: 'Select at least one option',
     submitError: 'Error submitting. Please try again later.',
     
-    // Markdown headers
+    // Markdown headers (Telegram message layout)
     mdInfant: '👶 Infant',
     mdChild: '🧒 Child',
     mdWoman: '🌸 Women\'s',
     mdMan: '👨 Men\'s',
     mdContacts: '📞 Contacts',
+    mdInfantPlain: 'Infant questionnaire',
+    mdChildPlain: 'Child questionnaire',
+    mdWomanPlain: 'Women\'s questionnaire',
+    mdManPlain: 'Men\'s questionnaire',
+    mdNewQuestionnaire: '📋 New questionnaire:',
+    mdDateLabel: '📅 Date:',
+    mdMainInfo: '👤 Main information:',
+    mdContactsDetailed: '📞 Contact details:',
+    mdFilledViaWebsite: 'Questionnaire submitted via website',
     
     // File upload
     selectFiles: 'Select files',

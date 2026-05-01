@@ -473,7 +473,126 @@ const escapeHtml = (text: string): string => {
     .replace(/'/g, '&#39;');
 };
 
-// Generate Markdown
+const TG_SEPARATOR = '━━━━━━━━━━━━━━━━━━━━';
+
+const GENERIC_QUESTION_LABELS = [
+  'Отметьте подходящее',
+  'Select applicable',
+  'Mark applicable',
+  'Check what applies',
+];
+
+/** Personal fields order in Telegram (matches typical «Имя → возраст → вес → рост» blocks). */
+const PERSONAL_FIELD_ORDER = ['name', 'last_name', 'age', 'age_months', 'weight', 'height'];
+
+const hasFormValue = (value: string | string[] | undefined): boolean => {
+  if (value === undefined || value === null) return false;
+  if (Array.isArray(value)) return value.length > 0;
+  return typeof value === 'string' && value.trim() !== '';
+};
+
+const includeQuestionInTelegram = (question: Question, formData: FormData): boolean => {
+  if (question.id === 'attach_files' && formData['has_tests_or_ultrasound'] !== 'yes') return false;
+  if (question.id === 'covid_times' && formData['covid_had'] !== 'yes') return false;
+  if (question.id === 'covid_doses' && formData['covid_vaccinated'] !== 'yes') return false;
+  if (
+    question.id === 'covid_complications' &&
+    formData['covid_had'] !== 'yes' &&
+    formData['covid_vaccinated'] !== 'yes'
+  ) {
+    return false;
+  }
+  return true;
+};
+
+const sectionHasAnswers = (section: QuestionnaireSection, formData: FormData): boolean =>
+  section.questions.some((question) => {
+    if (!includeQuestionInTelegram(question, formData)) return false;
+    return hasFormValue(formData[question.id]);
+  });
+
+const sortPersonalQuestions = (questions: Question[]): Question[] =>
+  [...questions].sort((a, b) => {
+    const ia = PERSONAL_FIELD_ORDER.indexOf(a.id);
+    const ib = PERSONAL_FIELD_ORDER.indexOf(b.id);
+    const ra = ia === -1 ? 1000 : ia;
+    const rb = ib === -1 ? 1000 : ib;
+    return ra - rb;
+  });
+
+const formatTelegramSubmissionDate = (lang: Language): string => {
+  const now = new Date();
+  const locale = lang === 'ru' ? 'ru-RU' : 'en-GB';
+  return new Intl.DateTimeFormat(locale, {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(now);
+};
+
+const resolveQuestionHeading = (
+  section: QuestionnaireSection,
+  question: Question,
+  lang: Language
+): string => {
+  const sectionTitle = (section.title[lang] || '').replace(/\s+/g, ' ').trim();
+  const questionLabel = (question.label[lang] || '').replace(/\s+/g, ' ').trim();
+  if (GENERIC_QUESTION_LABELS.includes(questionLabel) || questionLabel === sectionTitle) {
+    return sectionTitle;
+  }
+  return questionLabel;
+};
+
+const formatAnswerBodyLines = (
+  question: Question,
+  value: string | string[],
+  additional: string | undefined,
+  lang: Language
+): string[] => {
+  const additionalTrim = additional?.trim() ?? '';
+
+  if (question.type === 'file') {
+    const count = String(value).split(',').filter((s) => s.trim() !== '').length;
+    const text = lang === 'ru' ? `Прикреплено файлов: ${count}` : `Attached files: ${count}`;
+    return [escapeHtml(text)];
+  }
+
+  if (Array.isArray(value)) {
+    const rawLines: string[] = [];
+    for (const v of value) {
+      const opt = question.options?.find((o) => o.value === v);
+      let label = opt ? opt.label[lang] : v;
+      if (v === 'other' && additionalTrim) {
+        label = `${label}: ${additionalTrim}`;
+      }
+      rawLines.push(label);
+    }
+    if (rawLines.length === 0) return [];
+    if (rawLines.length === 1) {
+      return [escapeHtml(rawLines[0])];
+    }
+    return rawLines.map((l) => `• ${escapeHtml(l)}`);
+  }
+
+  let answerText = '';
+  if (question.options) {
+    const opt = question.options.find((o) => o.value === value);
+    answerText = opt ? opt.label[lang] : String(value);
+  } else {
+    answerText = question.unit ? formatValueWithUnit(String(value), question.unit, lang) : String(value);
+  }
+
+  if (additionalTrim) {
+    answerText += ` (${additionalTrim})`;
+  }
+
+  return [escapeHtml(answerText)];
+};
+
+// Telegram HTML message body (also shown in preview)
 export const generateMarkdown = (
   type: QuestionnaireType,
   sections: QuestionnaireSection[],
@@ -483,202 +602,92 @@ export const generateMarkdown = (
   lang: Language
 ): string => {
   const t = translations[lang];
-  const headers = {
-    infant: t.mdInfant,
-    child: t.mdChild,
-    woman: t.mdWoman,
-    man: t.mdMan,
+  const plainTitles: Record<QuestionnaireType, string> = {
+    infant: t.mdInfantPlain,
+    child: t.mdChildPlain,
+    woman: t.mdWomanPlain,
+    man: t.mdManPlain,
   };
 
-  // Start with header
-  let html = `<b>${escapeHtml(headers[type])}</b>\n`;
+  const lines: string[] = [];
 
-  let questionNumber = 1;
-  let digestionQuestionPassed = false;
+  lines.push(`${escapeHtml(t.mdNewQuestionnaire)} ${escapeHtml(plainTitles[type])}`);
+  lines.push(`${escapeHtml(t.mdDateLabel)} ${escapeHtml(formatTelegramSubmissionDate(lang))}`);
+  lines.push('');
+  lines.push(TG_SEPARATOR);
+  lines.push('');
+
+  let questionNum = 1;
 
   sections.forEach((section) => {
-    // Skip empty sections
-    const hasAnswers = section.questions.some((question) => {
-      const value = formData[question.id];
-      return value && (Array.isArray(value) ? value.length > 0 : value.trim() !== '');
-    });
+    if (!sectionHasAnswers(section, formData)) return;
 
-    if (!hasAnswers) return;
-
-    // For numbered sections: put number before section title
-    // Check if this section starts after digestion
-    const sectionHasDigestion = section.questions.some(
-      (q) => q.id === 'digestion' || q.id === 'digestion_problems'
-    );
-    if (sectionHasDigestion) {
-      digestionQuestionPassed = true;
-      questionNumber = 1;
-    }
-
-    // Determine if this section has only one question with generic/matching label
-    const answeredQuestions = section.questions.filter((q) => {
-      if (q.id === 'attach_files' && formData['has_tests_or_ultrasound'] !== 'yes') return false;
-      if (q.id === 'covid_times' && formData['covid_had'] !== 'yes') return false;
-      if (q.id === 'covid_doses' && formData['covid_vaccinated'] !== 'yes') return false;
-      if (q.id === 'covid_complications' && formData['covid_had'] !== 'yes' && formData['covid_vaccinated'] !== 'yes') return false;
-      const v = formData[q.id];
-      return v && (Array.isArray(v) ? v.length > 0 : (typeof v === 'string' && v.trim() !== ''));
-    });
-    const genericLabels = ['Отметьте подходящее', 'Select applicable', 'Mark applicable'];
-    const sectionTitle = (section.title[lang] || '').replace(/\s+/g, ' ').trim();
-    const isSingleGenericQuestion = answeredQuestions.length === 1 && 
-      (genericLabels.includes((answeredQuestions[0].label[lang] || '').trim()) || 
-       (answeredQuestions[0].label[lang] || '').trim() === sectionTitle);
-
-    // Section header with number if applicable
-    if (digestionQuestionPassed && isSingleGenericQuestion) {
-      // Single generic question: "8. Section Title\n Answer"
-      html += `${questionNumber}. <b>${escapeHtml(section.title[lang])}</b>\n`;
-      questionNumber++;
-      
-      const q = answeredQuestions[0];
-      const value = formData[q.id];
-      const additional = additionalData[`${q.id}_additional`];
-      let answerText = '';
-      if (Array.isArray(value)) {
-        answerText = value.map((v) => {
-          const opt = q.options?.find((o) => o.value === v);
-          return opt ? opt.label[lang] : v;
-        }).join(', ');
-      } else if (q.options) {
-        const opt = q.options.find((o) => o.value === value);
-        answerText = opt ? opt.label[lang] : String(value);
-      } else {
-        answerText = q.unit ? formatValueWithUnit(String(value), q.unit, lang) : String(value);
-      }
-      html += `${escapeHtml(answerText)}`;
-      if (additional && additional.trim() !== '') {
-        html += ` <i>(${escapeHtml(additional.trim())})</i>`;
-      }
-      html += `\n`;
-    } else {
-      // Regular section with multiple questions
-      html += `<b>${escapeHtml(section.title[lang])}</b>\n`;
-
-      section.questions.forEach((question) => {
-        if (question.id === 'attach_files' && formData['has_tests_or_ultrasound'] !== 'yes') {
-          return;
-        }
-        if (question.id === 'covid_times' && formData['covid_had'] !== 'yes') {
-          return;
-        }
-        if (question.id === 'covid_doses' && formData['covid_vaccinated'] !== 'yes') {
-          return;
-        }
-        if (question.id === 'covid_complications' && formData['covid_had'] !== 'yes' && formData['covid_vaccinated'] !== 'yes') {
-          return;
-        }
+    if (section.id === 'personal') {
+      lines.push(escapeHtml(t.mdMainInfo));
+      sortPersonalQuestions(section.questions).forEach((question) => {
+        if (!includeQuestionInTelegram(question, formData)) return;
         const value = formData[question.id];
-        const additional = additionalData[`${question.id}_additional`];
-
-        if (value && (Array.isArray(value) ? value.length > 0 : (typeof value === 'string' && value.trim() !== ''))) {
-          const label = question.label[lang];
-          
-          // Format answer
-          let answerText = '';
-          if (question.type === 'file') {
-            // Show count of attached files instead of listing names
-            const fileNames = String(value).split(',').filter(s => s.trim() !== '');
-            const count = fileNames.length;
-            if (lang === 'ru') {
-              answerText = `Прикреплено файлов: ${count}`;
-            } else {
-              answerText = `Attached files: ${count}`;
-            }
-          } else if (Array.isArray(value)) {
-            const optionLabels = value.map((v) => {
-              const opt = question.options?.find((o) => o.value === v);
-              return opt ? opt.label[lang] : v;
-            });
-            answerText = optionLabels.join(', ');
-          } else if (question.options) {
-            const opt = question.options.find((o) => o.value === value);
-            answerText = opt ? opt.label[lang] : value;
-          } else {
-            answerText = question.unit 
-              ? formatValueWithUnit(String(value), question.unit, lang)
-              : String(value);
-          }
-
-          // Check if label should be skipped
-          const questionLabel = (label || '').replace(/\s+/g, ' ').trim();
-          const skipLabel = questionLabel === sectionTitle || genericLabels.includes(questionLabel);
-          
-          if (skipLabel) {
-            if (digestionQuestionPassed) {
-              html += `${questionNumber}. `;
-              questionNumber++;
-            }
-            html += `${escapeHtml(answerText)}`;
-          } else {
-            if (digestionQuestionPassed) {
-              html += `${questionNumber}. <b>${escapeHtml(label)}</b>\n`;
-              questionNumber++;
-            } else {
-              html += `<b>${escapeHtml(label)}</b>\n`;
-            }
-            html += `${escapeHtml(answerText)}`;
-          }
-          
-          if (additional && additional.trim() !== '') {
-            html += ` <i>(${escapeHtml(additional.trim())})</i>`;
-          }
-          
-          html += `\n`;
-        }
+        if (!hasFormValue(value)) return;
+        const body = formatAnswerBodyLines(question, value, additionalData[`${question.id}_additional`], lang);
+        const answerJoined = body.join('\n').replace(/\n/g, ' ');
+        lines.push(`${escapeHtml(question.label[lang])}: ${answerJoined}`);
       });
+      lines.push('');
+      return;
     }
+
+    section.questions.forEach((question) => {
+      if (!includeQuestionInTelegram(question, formData)) return;
+      const value = formData[question.id];
+      if (!hasFormValue(value)) return;
+
+      const heading = resolveQuestionHeading(section, question, lang);
+      const additional = additionalData[`${question.id}_additional`];
+
+      lines.push(`${questionNum}. ${escapeHtml(heading)}:`);
+      questionNum += 1;
+
+      formatAnswerBodyLines(question, value, additional, lang).forEach((bl) => lines.push(bl));
+      lines.push('');
+    });
   });
 
-  // Contact section
-  const contacts: string[] = [];
-  
-  if (contactData.telegram && contactData.telegram.trim() !== '') {
+  lines.push(TG_SEPARATOR);
+
+  const contactLines: string[] = [];
+  if (contactData.telegram?.trim()) {
     const cleanTelegram = contactData.telegram.replace(/^@/, '').trim();
     const telegramLink = `https://t.me/${cleanTelegram}`;
-    const openProfileLabel = lang === 'ru' ? 'Открыть профиль' : 'Open profile';
-    contacts.push(`Telegram: @${escapeHtml(cleanTelegram)}\n<a href="${telegramLink}">👤 ${openProfileLabel}</a>`);
+    contactLines.push(
+      `Telegram: <a href="${telegramLink}">${escapeHtml('@' + cleanTelegram)}</a>`
+    );
   }
-  
-  if (contactData.instagram && contactData.instagram.trim() !== '') {
+  if (contactData.instagram?.trim()) {
     const cleanInstagram = contactData.instagram.replace(/^@/, '').trim();
     const instagramLink = `https://instagram.com/${cleanInstagram}`;
-    contacts.push(`Instagram: @${escapeHtml(cleanInstagram)}\n<a href="${instagramLink}">${escapeHtml(instagramLink)}</a>`);
+    contactLines.push(
+      `Instagram: <a href="${instagramLink}">${escapeHtml('@' + cleanInstagram)}</a>`
+    );
   }
-  
-  if (contactData.phone && contactData.phone.trim() !== '') {
+  if (contactData.phone?.trim()) {
     const cleanPhone = contactData.phone.trim();
     const phoneLink = `tel:${cleanPhone}`;
     const phoneLabel = lang === 'ru' ? 'Телефон' : 'Phone';
-    contacts.push(`${phoneLabel}: <a href="${phoneLink}">${escapeHtml(cleanPhone)}</a>`);
+    contactLines.push(`${phoneLabel}: <a href="${phoneLink}">${escapeHtml(cleanPhone)}</a>`);
   }
 
-  if (contacts.length > 0) {
-    html += `<b>${escapeHtml(t.mdContacts)}</b>\n`;
-    contacts.forEach((contact) => {
-      html += `${contact}\n`;
-    });
+  if (contactLines.length > 0) {
+    lines.push('');
+    lines.push(escapeHtml(t.mdContactsDetailed));
+    contactLines.forEach((cl) => lines.push(cl));
   }
 
-  // Убираем подряд идущие одинаковые строки: сравниваем по тексту без HTML и без ведущего «1. »
-  const normalizeForCompare = (s: string) =>
-    s.replace(/<[^>]*>/g, '').replace(/^\s*\d+\.\s*/, '').trim();
-  const lines = html.split('\n');
-  const deduped: string[] = [];
-  let prevNormalized = '';
-  for (const line of lines) {
-    const normalized = normalizeForCompare(line);
-    if (normalized !== prevNormalized) {
-      deduped.push(line);
-      prevNormalized = normalized;
-    }
-  }
-  return deduped.join('\n');
+  lines.push('');
+  lines.push(TG_SEPARATOR);
+  lines.push('');
+  lines.push(escapeHtml(t.mdFilledViaWebsite));
+
+  return lines.join('\n').replace(/\n+$/, '');
 };
 
 // Check if file is an image (for Telegram: send as photo so it's viewable inline)
