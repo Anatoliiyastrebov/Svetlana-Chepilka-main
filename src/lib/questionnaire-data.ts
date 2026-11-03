@@ -314,7 +314,7 @@ const waterOptions: QuestionOption[] = [
   { value: '2.5', label: { ru: '2.5 литра', en: '2.5 liters' } },
   { value: '3', label: { ru: '3 литра', en: '3 liters' } },
   { value: '3.5', label: { ru: '3.5 литра', en: '3.5 liters' } },
-  { value: 'other', label: { ru: 'Другое (укажите)', en: 'Other (specify)' } },
+  { value: 'other', label: { ru: 'Свой вариант', en: 'Other' } },
 ];
 
 const sleepAdultOptions: QuestionOption[] = [
@@ -1101,9 +1101,10 @@ export const womanQuestionnaire: QuestionnaireSection[] = [
           { value: '3', label: { ru: '3 л', en: '3 L' } },
           { value: '3.5', label: { ru: '3.5 л', en: '3.5 L' } },
           { value: '4_plus', label: { ru: '4 л и более', en: '4 L and more' } },
+          { value: 'other', label: { ru: 'Свой вариант', en: 'Other' } },
         ],
         required: true,
-        hasAdditional: false,
+        hasAdditional: true,
       },
     ],
   },
@@ -1720,9 +1721,10 @@ export const manQuestionnaire: QuestionnaireSection[] = [
           { value: '3', label: { ru: '3 л', en: '3 L' } },
           { value: '3.5', label: { ru: '3.5 л', en: '3.5 L' } },
           { value: '4_plus', label: { ru: '4 л и более', en: '4 L and more' } },
+          { value: 'other', label: { ru: 'Свой вариант', en: 'Other' } },
         ],
         required: true,
-        hasAdditional: false,
+        hasAdditional: true,
       },
     ],
   },

@@ -290,6 +290,8 @@ export const QuestionField: React.FC<QuestionFieldProps> = memo(({
               ? (language === 'ru' ? 'Дополнительная информация' : 'Additional information')
               : question.id === 'joints_spine_problems'
               ? (language === 'ru' ? 'Уточните подробности' : 'Specify details')
+              : question.id === 'water_per_day'
+              ? (language === 'ru' ? 'Сколько литров вы пьёте' : 'How many liters you drink')
               : t('additionalInfo')}
             {additionalError && <span className="text-destructive ml-1">*</span>}
           </label>
@@ -308,6 +310,8 @@ export const QuestionField: React.FC<QuestionFieldProps> = memo(({
                 ? (language === 'ru' ? 'Опишите подробнее (размер, диагноз и т.д.)' : 'Describe in detail (size, diagnosis, etc.)')
                 : question.id === 'joints_spine_problems'
                 ? (language === 'ru' ? 'Стадия артроза, локализация и т.д.' : 'Arthrosis stage, location, etc.')
+                : question.id === 'water_per_day'
+                ? (language === 'ru' ? 'Например: 0.5 л или 800 мл' : 'For example: 0.5 L or 800 ml')
                 : t('additionalInfo')
             }
           />
