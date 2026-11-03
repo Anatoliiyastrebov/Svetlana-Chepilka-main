@@ -705,18 +705,40 @@ const isImageFile = (file: File): boolean => {
   return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].includes(ext);
 };
 
+// Shrink big photos before upload: max 2000 px on the long side, JPEG 85%.
+// Small files and anything the browser can't decode (e.g. HEIC) are sent unchanged.
+const compressImage = async (file: File): Promise<File> => {
+  if (file.size <= 1024 * 1024) return file;
+  try {
+    const bitmap = await createImageBitmap(file);
+    const scale = Math.min(1, 2000 / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(bitmap.width * scale);
+    canvas.height = Math.round(bitmap.height * scale);
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return file;
+    ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    bitmap.close();
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.85));
+    if (!blob || blob.size >= file.size) return file;
+    return new File([blob], file.name.replace(/\.[^.]+$/, '') + '.jpg', { type: 'image/jpeg' });
+  } catch {
+    return file;
+  }
+};
+
 // Send file to Telegram (images via sendPhoto for inline viewing, rest via sendDocument)
-// shortcut: sendPhoto rejects photos over 10 MB (phone photos often are), so those fall back to sendDocument
+// shortcut: sendPhoto rejects photos over 10 MB, so those fall back to sendDocument
 const sendFileToTelegram = async (
   botToken: string,
   chatId: string,
   file: File,
   caption?: string
 ): Promise<{ success: boolean; error?: string }> => {
-  const post = async (method: 'sendPhoto' | 'sendDocument') => {
+  const post = async (method: 'sendPhoto' | 'sendDocument', upload: File) => {
     const formData = new FormData();
     formData.append('chat_id', chatId);
-    formData.append(method === 'sendPhoto' ? 'photo' : 'document', file, file.name);
+    formData.append(method === 'sendPhoto' ? 'photo' : 'document', upload, upload.name);
     if (caption) {
       formData.append('caption', caption);
     }
@@ -729,10 +751,11 @@ const sendFileToTelegram = async (
 
   try {
     const isImage = isImageFile(file);
-    let responseData = await post(isImage ? 'sendPhoto' : 'sendDocument');
+    const upload = isImage ? await compressImage(file) : file;
+    let responseData = await post(isImage ? 'sendPhoto' : 'sendDocument', upload);
     if (!responseData.ok && isImage) {
       console.warn('sendPhoto rejected, sending as document:', responseData.description);
-      responseData = await post('sendDocument');
+      responseData = await post('sendDocument', upload);
     }
 
     if (!responseData.ok) {
