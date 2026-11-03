@@ -315,6 +315,14 @@ export default function AnketaPage() {
           type,
         });
         
+        if (result.failedFiles && result.failedFiles.length > 0) {
+          toast.error(
+            language === 'ru'
+              ? `Анкета отправлена, но не загрузились файлы: ${result.failedFiles.join(', ')}. Пришлите их, пожалуйста, в Telegram.`
+              : `Questionnaire sent, but these files did not upload: ${result.failedFiles.join(', ')}. Please send them via Telegram.`,
+            { duration: 15000 }
+          );
+        }
         clearFormData(type, language);
         router.push(`/success?lang=${language}`);
       } else {

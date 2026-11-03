@@ -396,6 +396,13 @@ export const validateForm = (
     }
   }
 
+  // Special validation: if water_per_day is "other" (Свой вариант), the amount must be written in additional field
+  if (formData['water_per_day'] === 'other' && additionalData) {
+    if (!additionalData['water_per_day_additional']?.trim()) {
+      errors['water_per_day_additional'] = t.required;
+    }
+  }
+
   // Special validation: if covid_complications has "other" selected, additional field is required
   if (formData['covid_complications'] && additionalData) {
     const covidValue = formData['covid_complications'];
@@ -699,37 +706,36 @@ const isImageFile = (file: File): boolean => {
 };
 
 // Send file to Telegram (images via sendPhoto for inline viewing, rest via sendDocument)
+// shortcut: sendPhoto rejects photos over 10 MB (phone photos often are), so those fall back to sendDocument
 const sendFileToTelegram = async (
   botToken: string,
   chatId: string,
   file: File,
   caption?: string
 ): Promise<{ success: boolean; error?: string }> => {
-  try {
+  const post = async (method: 'sendPhoto' | 'sendDocument') => {
     const formData = new FormData();
     formData.append('chat_id', chatId);
-    const isImage = isImageFile(file);
-    if (isImage) {
-      formData.append('photo', file, file.name);
-    } else {
-      formData.append('document', file, file.name);
-    }
+    formData.append(method === 'sendPhoto' ? 'photo' : 'document', file, file.name);
     if (caption) {
       formData.append('caption', caption);
     }
-
-    const endpoint = isImage
-      ? `https://api.telegram.org/bot${botToken}/sendPhoto`
-      : `https://api.telegram.org/bot${botToken}/sendDocument`;
-
-    const response = await fetch(endpoint, {
+    const response = await fetch(`https://api.telegram.org/bot${botToken}/${method}`, {
       method: 'POST',
       body: formData,
     });
+    return response.json();
+  };
 
-    const responseData = await response.json();
+  try {
+    const isImage = isImageFile(file);
+    let responseData = await post(isImage ? 'sendPhoto' : 'sendDocument');
+    if (!responseData.ok && isImage) {
+      console.warn('sendPhoto rejected, sending as document:', responseData.description);
+      responseData = await post('sendDocument');
+    }
 
-    if (!response.ok || !responseData.ok) {
+    if (!responseData.ok) {
       const errorMsg = responseData.description || 'Failed to send file';
       console.error('Telegram file upload error:', errorMsg);
       return { success: false, error: errorMsg };
@@ -753,7 +759,7 @@ export const sendToTelegram = async (
   markdown: string,
   files: File[] = [],
   lang: Language = 'ru'
-): Promise<{ success: boolean; error?: string; messageId?: number }> => {
+): Promise<{ success: boolean; error?: string; messageId?: number; failedFiles?: string[] }> => {
   // Get from environment variables
   const BOT_TOKEN = process.env.NEXT_PUBLIC_TELEGRAM_BOT_TOKEN;
   const CHAT_ID = process.env.NEXT_PUBLIC_TELEGRAM_CHAT_ID;
@@ -854,6 +860,7 @@ Current status:
     });
 
     // Send files if any
+    let failedFiles: string[] = [];
     if (files.length > 0) {
       console.log('Sending files to Telegram...', { count: files.length });
       const t = translations[lang];
@@ -871,22 +878,22 @@ Current status:
         )
       );
 
-      const failedFiles = fileResults
-        .map((result, index) => ({ result, index }))
-        .filter(({ result }) => result.status === 'rejected' || 
-          (result.status === 'fulfilled' && !result.value.success));
+      // Don't fail the whole submission if files fail; the caller shows which ones were lost
+      failedFiles = fileResults
+        .map((result, index) => (result.status === 'fulfilled' && result.value.success ? null : files[index].name))
+        .filter((name): name is string => name !== null);
 
       if (failedFiles.length > 0) {
         console.warn('Some files failed to upload:', failedFiles);
-        // Don't fail the whole submission if files fail, but log it
       } else {
         console.log('All files sent successfully');
       }
     }
 
-    return { 
-      success: true, 
-      messageId: messageId 
+    return {
+      success: true,
+      messageId: messageId,
+      failedFiles,
     };
   } catch (error: any) {
     if (timeoutId) clearTimeout(timeoutId);
