@@ -314,7 +314,7 @@ const waterOptions: QuestionOption[] = [
   { value: '2.5', label: { ru: '2.5 литра', en: '2.5 liters' } },
   { value: '3', label: { ru: '3 литра', en: '3 liters' } },
   { value: '3.5', label: { ru: '3.5 литра', en: '3.5 liters' } },
-  { value: 'other', label: { ru: 'Свой вариант', en: 'Other' } },
+  { value: 'other', label: { ru: 'Другое (укажите)', en: 'Other (specify)' } },
 ];
 
 const sleepAdultOptions: QuestionOption[] = [
